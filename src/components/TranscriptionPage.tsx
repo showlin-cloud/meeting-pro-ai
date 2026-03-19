@@ -150,8 +150,8 @@ export default function TranscriptionPage() {
           } else if (event.status === 'progress' && event.file) {
             setDownloadStats({
               file: event.file,
-              loaded: event.loaded || 0,
-              total: event.total || 0,
+              loaded: (event as any).loaded || 0,
+              total: (event as any).total || 0,
               percentage: event.progress || 0
             });
             setStatusText(`[DOWNLOAD] PULLING ${event.file}... ${Math.round(modelP)}%`);
