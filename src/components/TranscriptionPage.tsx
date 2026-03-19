@@ -5,8 +5,8 @@ import { localAudioProcessor } from '@/lib/localAudioProcessor';
 import { LocalWhisperEngine, decodeAudioBlobToFloat32Array } from '@/lib/localWhisperEngine';
 import { exportToMarkdown, TranscriptSegment } from '@/lib/exportToMarkdown';
 import { 
-  FileDown, BrainCircuit, UploadCloud, Stars, RefreshCw, CheckCircle2,
-  HardDrive, Cpu, Radio, AlignLeft, AudioWaveform, AlertCircle, Zap, Skull
+  FileDown, DownloadCloud, Stars, RefreshCw, CheckCircle2,
+  HardDrive, Cpu, Radio, AlignLeft, AudioWaveform, Zap, Flame
 } from 'lucide-react';
 
 export default function TranscriptionPage() {
@@ -34,7 +34,8 @@ export default function TranscriptionPage() {
     "老總... 你的敗因只有一個，叫我聽這長達 3 小時的廢話。",
     "我從短暫的社畜人生中學到一件事... 我不聽錄音檔啦！",
     "這就是我替身的能力。你剛開了三小時的會，我一秒就看透。",
-    "我只想要平靜的下班生活... 碰上長音檔，我也絕不退縮！"
+    "我只想要平靜的下班生活... 碰上長音檔，我也絕不退縮！",
+    "「世界」啊！停止這無意義的時間吧！由我來終結這段錄音！"
   ];
 
   useEffect(() => {
@@ -43,21 +44,20 @@ export default function TranscriptionPage() {
     lastMousePosRef.current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     
     const handleMouseMove = (e: MouseEvent) => {
-      // Crazy Y2K Metaverse Shift Factor (Aggressive shift)
-      const x = (e.clientX / window.innerWidth - 0.5) * 600;
-      const y = (e.clientY / window.innerHeight - 0.5) * 600;
+      // MEGA Y2K SHIFT (Aggressive shift for background)
+      const x = (e.clientX / window.innerWidth - 0.5) * 800;
+      const y = (e.clientY / window.innerHeight - 0.5) * 800;
       setMousePos({ x, y });
       
-      // Calculate velocity for Mascot tilt leaning
+      // Mascot Tilt
       const dx = e.clientX - lastMousePosRef.current.x;
-      const tilt = Math.max(-45, Math.min(45, dx * 1.5)); // Extreme tilt up to 45 deg
+      const tilt = Math.max(-50, Math.min(50, dx * 2)); 
       setTargetTilt(tilt);
 
-      // Mascot Follow offset
+      // Mascot Pos
       setMascotPos({ x: e.clientX, y: e.clientY });
       lastMousePosRef.current = { x: e.clientX, y: e.clientY };
 
-      // Return to upright when stopped
       if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
       stopTimerRef.current = setTimeout(() => {
         setTargetTilt(0);
@@ -81,7 +81,7 @@ export default function TranscriptionPage() {
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);
-    setHoverQuote("「貧弱！貧弱！這點大小的檔案也敢拿來？」");
+    setHoverQuote("「受死吧！這點程度的音檔，在我的『WASM波紋』面前毫無還手之力！」");
   };
 
   const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
@@ -115,28 +115,27 @@ export default function TranscriptionPage() {
 
   const startProcessing = async (targetFile: File) => {
     try {
-      triggerJojoEffect(); // Trigger Dramatic Anime Overlay Action!
-      
+      triggerJojoEffect(); 
       setStatus('processing');
       setProgress(0);
       setSegments([]);
       setDownloadStats({ file: '', loaded: 0, total: 0, percentage: 0 });
       
       setActiveStep(1);
-      setStatusText('mounting virtual matrix via ffmpeg.wasm...');
+      setStatusText('啟動量子矩陣... FFMPEG.WASM 疊加態加壓中...');
       const audioBlob = await localAudioProcessor(targetFile, (ratio) => {
         setProgress(Math.round(ratio * 30));
       });
 
       setActiveStep(2);
       setProgress(32);
-      setStatusText('warning: hardcore audio decoding to Float32Array (UI may choke!) ⚠️');
+      setStatusText('警告：核心瘋狂解析中！Float32Array 正在燃燒你的 CPU 靈魂！ 🔥');
       
       await new Promise(resolve => setTimeout(resolve, 500));
       const audioData = await decodeAudioBlobToFloat32Array(audioBlob);
 
       setActiveStep(3);
-      setStatusText('neural network awakening... 🧠');
+      setStatusText('覺醒吧！神經網路的大腦... 正在降臨！🧠');
       setProgress(35);
 
       const engine = new LocalWhisperEngine((event) => {
@@ -146,7 +145,7 @@ export default function TranscriptionPage() {
           setProgress(35 + Math.round((modelP / 100) * 15));
           
           if (event.status === 'initiate') {
-            setStatusText(`[DOWNLOAD] initializing: ${event.file || 'models'}...`);
+            setStatusText(`[降臨] 正在召喚深淵模組: ${event.file || 'models'}...`);
           } else if (event.status === 'progress' && event.file) {
             setDownloadStats({
               file: event.file,
@@ -154,19 +153,19 @@ export default function TranscriptionPage() {
               total: (event as any).total || 0,
               percentage: event.progress || 0
             });
-            setStatusText(`[DOWNLOAD] PULLING ${event.file}... ${Math.round(modelP)}%`);
+            setStatusText(`[傳輸中] 注入神經元 ${event.file}... ${Math.round(modelP)}%`);
           } else if (event.status === 'ready') {
-            setStatusText(`[MODULE READY]: ${event.file || 'layer_1'} ✨`);
+            setStatusText(`[模組完全覺醒]: ${event.file || 'layer_1'} ✨`);
           } else {
-            setStatusText(`[SYSTEM] locking memory... ${Math.round(modelP)}%`);
+            setStatusText(`[系統強化] 鎖定瀏覽器記憶體... ${Math.round(modelP)}%`);
           }
         } else if (event.type === 'ready') {
           setActiveStep(4);
-          setStatusText('[OVERDRIVE] cyber engine active! streaming real-time...');
+          setStatusText('『替身：SILENT PRODUCER』完全顯現！開展領域：真實之言！');
           engine.transcribe(audioData);
         } else if (event.type === 'chunk_update') {
           setProgress((prev) => (prev < 98 ? prev + 1 : prev));
-          setStatusText('[INFERENCE] crushing logic matrix into words...');
+          setStatusText('正在將混沌的音波轉化為智慧的文字...');
           if (event.output && Array.isArray(event.output)) {
             const mappedSegments = event.output.map((o: any) => ({
               timestamp: o.timestamp ? `${o.timestamp[0]} - ${o.timestamp[1] || '...'}` : 'unknown',
@@ -183,11 +182,9 @@ export default function TranscriptionPage() {
               text: chunk.text
             }));
             setSegments(finalSegments);
-          } else if (event.result && event.result.text) {
-             setSegments([{ timestamp: '0.00-end', speaker: 'speaker_1', text: event.result.text }]);
           }
           setProgress(100);
-          setStatusText('transcript crafted entirely offline. 🍒');
+          setStatusText('完全理解。所有秘密皆在此顯現。 🍒');
           setStatus('completed');
           setActiveStep(5);
         } else if (event.type === 'error') {
@@ -225,305 +222,208 @@ export default function TranscriptionPage() {
     let mdContent = '| timestamp | identity | dialog |\n';
     mdContent += '| --- | --- | --- |\n';
     segments.forEach((seg) => {
-      const safeText = seg.text.replace(/\\|/g, '&#124;').replace(/\n/g, '<br>');
+      const safeText = (seg.text || "").replace(/\\|/g, '&#124;').replace(/\n/g, '<br>');
       mdContent += `| ${seg.timestamp} | ${seg.speaker || '???'} | ${safeText} |\n`;
     });
     return mdContent;
   };
 
-  // Dark Y2K Space Style Constants (PURE NEON DARKNESS)
-  const TACTILE_BOX = "bg-slate-950/80 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_0_80px_rgba(255,0,255,0.1)] rounded-[3rem]";
-  const CLAY_BUTTON = "rounded-full font-black tracking-widest uppercase transition-all duration-300 hover:scale-[1.05] active:scale-90 shadow-[0_10px_30px_rgba(0,0,0,0.8)] border-2 border-transparent hover:border-fuchsia-500/50";
-  const SOFT_PILL = "flex items-center gap-4 p-5 rounded-[2rem] border border-white/5 bg-[#0a0a0f] transition-all duration-500 shadow-[inset_0_2px_10px_rgba(0,0,0,0.8)]";
+  // Dark Y2K Style Constants
+  const TACTILE_BOX = "bg-[#0b101a]/85 backdrop-blur-3xl border border-fuchsia-500/20 shadow-[0_0_80px_rgba(255,0,255,0.1),inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[3rem]";
+  const CLAY_BUTTON = "rounded-full font-black tracking-widest uppercase transition-all duration-300 hover:scale-[1.1] active:scale-90 shadow-[0_0_30px_rgba(217,70,239,0.4)] border-2 border-slate-700 hover:border-fuchsia-400";
+  const SOFT_PILL = "flex items-center gap-4 p-5 rounded-[2rem] border border-white/10 bg-black/40 transition-all duration-500 shadow-xl";
 
   const getMascotSpeech = () => {
     if (hoverQuote) return hoverQuote;
-    if (status === 'idle') return "「人類什麼時候才不開會？」 🌍";
+    if (status === 'idle') return "「這種波紋... 是開會的前兆嗎？！」 🌍";
     if (status === 'processing') {
-      if (activeStep === 3) return "「好重！150MB 的大腦下載中！💦」";
-      return "「歐拉歐拉歐拉！碎紙中！」 ⚙️";
+      if (activeStep === 3) return "「歐拉歐拉歐拉！150MB 的大腦注入中！注入中！」";
+      return "「木大木大木大！音檔太慢了，給我覺醒！」 ⚙️";
     }
-    if (status === 'error') return "「替身能力超載！機體故障啦！🤬」";
-    return "「全裸待機結束，可以睡了嗎？💤」";
+    if (status === 'error') return "「這難道也是... 迪奧的陰謀嗎？！機體大破！」 🤬";
+    return "「終於結束了... 這一場漫長的十字軍遠征（會議）。💤」";
   };
 
   return (
-    <div className={`w-full min-h-screen bg-[#04060b] bg-[url('/bg-starry.png')] bg-cover bg-center bg-fixed text-slate-200 font-sans pt-12 pb-24 px-6 md:px-12 selection:bg-fuchsia-500 selection:text-white relative overflow-hidden ${showJojo ? 'animate-[shake_0.1s_linear_infinite]' : ''}`}>
+    <div className={`w-full min-h-screen bg-[#04060b] bg-[url('/bg-cosmic.png')] bg-cover bg-center bg-fixed text-slate-200 font-sans pt-12 pb-24 px-6 md:px-12 selection:bg-fuchsia-500 selection:text-white relative overflow-hidden ${showJojo ? 'animate-[shake_0.1s_linear_infinite]' : ''}`}>
       
-      {/* Background Decorative Space Blobs (Y2K Neon Dark Energy overlapping the Stars) */}
-      <div className="absolute inset-0 bg-[#06080f]/50 pointer-events-none" />
+      {/* Background Neon Overlays - Aggressive Reaction */}
       <div 
-        className="fixed top-[-30%] left-[-20%] w-[80vw] h-[80vw] rounded-full bg-gradient-to-tr from-fuchsia-600/50 to-purple-800/50 blur-[120px] 0 animate-pulse mix-blend-color-dodge pointer-events-none transition-transform duration-[200ms] ease-out" 
-        style={{ transform: `translate(${-mousePos.x}px, ${-mousePos.y}px)`, animationDuration: '4s' }} 
+        className="fixed inset-0 pointer-events-none transition-colors duration-[300ms] opacity-40 mix-blend-color-dodge -z-10" 
+        style={{ backgroundColor: `hsl(${(mousePos.x + 300) / 4}, 80%, 50%)` }}
       />
       <div 
-        className="fixed bottom-[-20%] right-[-20%] w-[70vw] h-[70vw] rounded-full bg-gradient-to-tl from-cyan-400/50 to-lime-500/40 blur-[120px] 0 animate-pulse mix-blend-color-dodge pointer-events-none transition-transform duration-[200ms] ease-out" 
-        style={{ transform: `translate(${mousePos.x}px, ${mousePos.y}px)`, animationDuration: '7s' }} 
+        className="fixed top-[-30%] left-[-20%] w-[100vw] h-[100vw] rounded-full bg-gradient-to-tr from-fuchsia-600/50 to-purple-800/20 blur-[150px] -z-10 transition-transform duration-[150ms] ease-out" 
+        style={{ transform: `translate(${-mousePos.x}px, ${-mousePos.y}px)` }} 
       />
       
-      {/* Web Overlay Grid for Cyberpunk / Y2K feel */}
-      <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px] pointer-events-none -z-10" />
+      {/* Dynamic Scanline Grid */}
+      <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:100px_100px] pointer-events-none -z-10 animate-[pulse_5s_infinite]" />
 
       {/* Header */}
-      <header className="max-w-4xl mx-auto mb-16 flex flex-col items-center justify-center text-center gap-4 relative z-10 p-4">
-        <h1 className="text-6xl md:text-8xl font-black lowercase tracking-tighter text-white flex flex-col md:flex-row items-center justify-center gap-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-          <span className="bg-lime-400 text-lime-950 p-4 rounded-[2rem] shadow-[inset_0_-8px_16px_rgba(0,0,0,0.5),0_10px_40px_rgba(163,230,53,0.3)] rotate-[-6deg] hover:rotate-12 transition-transform duration-300">
-            <Zap className="h-12 w-12 fill-lime-950" />
+      <header className="max-w-4xl mx-auto mb-16 flex flex-col items-center justify-center text-center gap-4 relative z-10 p-4 drop-shadow-[0_0_30px_rgba(217,70,239,0.3)]">
+        <h1 className="text-7xl md:text-9xl font-black lowercase tracking-tighter text-white flex flex-col md:flex-row items-center justify-center gap-6">
+          <span className="bg-fuchsia-600 text-white p-6 rounded-[2.5rem] shadow-[inset_0_-8px_16px_rgba(0,0,0,0.5),0_10px_60px_rgba(217,70,239,0.6)] rotate-[-8deg] hover:rotate-12 transition-transform duration-300">
+            <Zap className="h-16 w-12 fill-white" />
           </span>
           transcribe_ai.
         </h1>
-        <p className="text-fuchsia-300 font-bold tracking-[0.2em] text-sm md:text-lg uppercase bg-slate-900/80 px-8 py-3 rounded-full border border-fuchsia-500/30 shadow-[0_0_20px_rgba(217,70,239,0.3)] backdrop-blur-xl mt-4 cursor-crosshair">
-          dark y2k local neural overdrive 🌌
+        <p className="text-cyan-300 font-black tracking-[0.4em] text-lg md:text-2xl uppercase mt-4 bg-black/60 px-12 py-4 rounded-full border-4 border-cyan-400/50 shadow-[0_0_40px_rgba(34,211,238,0.4)] backdrop-blur-xl animate-pulse">
+          neural overdrive ⚡ jojo stance
         </p>
       </header>
       
-      <main className="max-w-3xl mx-auto relative z-10 pl-0 md:pl-20"> {/* Offset left to make room for mascot */}
-        
-        {/* State A: Idle (Drag & Drop Dark Y2K Style) */}
+      <main className="max-w-3xl mx-auto relative z-10">
+        {/* State A: Idle */}
         {status === 'idle' && (
           <div 
             onClick={handleFileClick}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            onMouseEnter={() => setHoverQuote('「把長達一小時的錄音檔拖進來吧... 雖然我很想下班。」')}
+            onMouseEnter={() => setHoverQuote('「把長達一小時的錄音檔拖進來吧！覺悟吧！」')}
             onMouseLeave={() => setHoverQuote('')}
             className={`
-              relative overflow-hidden group cursor-pointer transition-all duration-300 text-center
-              ${TACTILE_BOX} p-16 md:p-32 
-              ${isDragging ? 'scale-[1.03] shadow-[0_40px_100px_rgba(217,70,239,0.4)] border-fuchsia-500 bg-slate-900/95' : 'hover:scale-[1.01] hover:bg-slate-900/80 hover:border-slate-600'}
+              relative overflow-hidden group cursor-crosshair transition-all duration-300 text-center
+              ${TACTILE_BOX} p-16 md:p-32 border-4
+              ${isDragging ? 'scale-[1.05] shadow-[0_0_120px_rgba(217,70,239,0.8)] border-fuchsia-400 bg-slate-900/90' : 'hover:scale-[1.02] border-fuchsia-500/30'}
             `}
           >
             <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} accept="video/*,audio/*" />
             
             <div className="relative z-10 flex flex-col items-center">
-              <div className={`p-8 rounded-[2.5rem] mb-10 transition-all duration-500 
-                ${isDragging ? 'bg-fuchsia-500 text-white shadow-[inset_0_-10px_20px_rgba(0,0,0,0.5),0_0_60px_rgba(217,70,239,0.8)] rotate-12 scale-125' : 'bg-slate-800 text-slate-400 group-hover:bg-lime-400 group-hover:text-lime-950 group-hover:shadow-[inset_0_-10px_20px_rgba(0,0,0,0.4),0_10px_40px_rgba(163,230,53,0.5)] group-hover:-rotate-[10deg]'}`}>
-                <Skull className="h-20 w-20" strokeWidth={2} />
+              {/* Dancing JoJo Icon */}
+              <div className="relative mb-12">
+                 <div className="absolute inset-0 bg-fuchsia-500 blur-3xl opacity-30 animate-pulse" />
+                 <img 
+                    src="/jojo-icon.png" 
+                    alt="Dancing JoJo" 
+                    className={`w-48 h-48 md:w-64 md:h-64 object-contain transition-all duration-500 relative z-10 drop-shadow-[0_0_40px_rgba(255,255,255,0.5)] 
+                    ${isDragging ? 'animate-[jojo-spin_0.5s_linear_infinite] scale-125' : 'animate-[jojo-dance_3s_ease-in-out_infinite]'}`} 
+                 />
               </div>
               
-              <h3 className="text-5xl font-black lowercase tracking-tighter text-white mb-6 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
-                feed the beast.
+              <h3 className="text-5xl md:text-7xl font-black lowercase tracking-tighter text-white mb-8 bg-black/40 px-8 py-4 rounded-3xl border border-white/10">
+                stand activation.
               </h3>
-              <p className="text-slate-400 font-bold text-sm max-w-sm mx-auto leading-relaxed mb-12 lowercase tracking-widest bg-black/40 px-6 py-4 rounded-3xl border border-white/5">
-                我們將在您的瀏覽器記憶體內，直接用 WASM 壓縮並啟動「離線神經網路」。完全隱私，極度中二。
+              <p className="text-slate-300 font-bold text-sm md:text-lg max-w-xl mx-auto leading-relaxed mb-12 lowercase tracking-widest bg-fuchsia-950/40 p-10 rounded-[3rem] border-2 border-fuchsia-500/20 shadow-inner">
+                這不是科學，這是覺醒！在您的瀏覽器深淵中，WASM 的波紋已然啟動。離線神經網路——『替身：SILENT PRODUCER』在此顯現！絕不外傳、絕不背叛，這就是我們的「黃金體驗」。
               </p>
               
-              <div className="inline-flex items-center gap-4 bg-white text-slate-950 px-10 py-5 rounded-[2.5rem] text-sm font-black lowercase tracking-widest shadow-[0_10px_40px_rgba(255,255,255,0.2)] hover:bg-lime-400 hover:shadow-[0_10px_40px_rgba(163,230,53,0.4)] transition-all">
-                <UploadCloud className="w-6 h-6" strokeWidth={3} /> Ignite Engine
+              <div className="inline-flex items-center gap-6 bg-white text-slate-950 px-12 py-6 rounded-full text-lg font-black lowercase tracking-widest shadow-[0_15px_60px_rgba(255,255,255,0.3)] hover:bg-lime-400 hover:scale-110 transition-all cursor-pointer">
+                <Flame className="w-8 h-8 fill-slate-950" strokeWidth={3} /> Ignite "The World"
               </div>
             </div>
           </div>
         )}
 
-        {/* State B: Processing (Intense Loading Visualizer) */}
+        {/* State B: Processing */}
         {status === 'processing' && (
-          <div className={`${TACTILE_BOX} relative overflow-hidden`}>
-            {/* Blinking Border Light */}
-            <div className={`absolute inset-0 border-[6px] transition-colors duration-200 pointer-events-none rounded-[3rem] ${
-              activeStep === 3 && downloadStats.file ? 'border-amber-500/50 mix-blend-overlay animate-[pulse_0.5s_infinite]' : 'border-transparent'
-            }`} />
-
-            <div className="p-10 md:p-14">
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b-2 border-slate-800 pb-8">
+          <div className={`${TACTILE_BOX} p-10 md:p-14 border-4 border-cyan-500/30`}>
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b-2 border-slate-800 pb-10">
                 <div>
-                  <h2 className="text-5xl font-black lowercase tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">converting...</h2>
-                  <p className="text-slate-400 mt-4 font-black flex items-center gap-3 lowercase tracking-wider text-sm bg-black/50 px-5 py-3 rounded-2xl border border-white/10 w-fit">
-                    <AudioWaveform className="w-5 h-5 text-fuchsia-500 animate-[bounce_1s_infinite]" /> {file?.name}
+                  <h2 className="text-6xl font-black lowercase tracking-tighter text-white animate-pulse">overdrive...</h2>
+                  <p className="text-cyan-400 font-black mt-4 lowercase tracking-[0.2em] text-sm bg-black/60 px-6 py-4 rounded-2xl border-2 border-cyan-500/30 flex items-center gap-4">
+                    <AudioWaveform className="w-6 h-6 animate-[bounce_0.8s_infinite]" /> {file?.name}
                   </p>
                 </div>
-                <div className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-600 tabular-nums tracking-tighter">
-                  {progress}
-                  <span className="text-4xl text-slate-500">%</span>
+                <div className="text-9xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white via-cyan-400 to-fuchsia-500 tabular-nums tracking-tighter drop-shadow-[0_0_30px_rgba(217,70,239,0.5)]">
+                  {progress}<span className="text-4xl text-slate-500">%</span>
                 </div>
               </div>
 
-              {/* Massive Squishy Progress Bar */}
-              <div className="h-10 w-full bg-black/50 border-2 border-slate-800 shadow-[inset_0_10px_20px_rgba(0,0,0,0.8)] rounded-full overflow-hidden mb-12 p-1.5 backdrop-blur-sm">
+              {/* Mega Progress Bar */}
+              <div className="h-16 w-full bg-black/80 border-4 border-slate-700 shadow-[inset_0_10px_30px_rgba(0,0,0,1)] rounded-[2rem] overflow-hidden mb-12 p-2 backdrop-blur-3xl">
                 <div 
-                  className="h-full bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-lime-400 rounded-full transition-all duration-[800ms] ease-out shadow-[0_0_20px_rgba(217,70,239,0.8)] relative overflow-hidden"
-                  style={{ width: `${Math.max(2, progress)}%` }}
+                  className="h-full bg-gradient-to-r from-cyan-400 via-fuchsia-600 to-lime-400 rounded-2xl transition-all duration-[1000ms] ease-out shadow-[0_0_40px_rgba(217,70,239,1)] relative overflow-hidden"
+                  style={{ width: `${Math.max(3, progress)}%` }}
                 >
-                   <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(0,0,0,0.3)_25%,transparent_25%,transparent_50%,rgba(0,0,0,0.3)_50%,rgba(0,0,0,0.3)_75%,transparent_75%,transparent)] bg-[length:2rem_2rem] animate-[progress-stripe_1s_linear_infinite]" />
+                   <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:4rem_4rem] animate-[progress-stripe_1.5s_linear_infinite]" />
                 </div>
               </div>
 
-              {/* CRAZY 35% DOWNLOAD VISUALIZER */}
+              {/* 35% Download Visualizer */}
               {activeStep === 3 && (
-                <div className="mb-12 bg-[#1a0f00] border-4 border-amber-500 rounded-[2.5rem] p-8 shadow-[inset_0_0_50px_rgba(245,158,11,0.2),0_0_30px_rgba(245,158,11,0.4)] animate-in fade-in zoom-in duration-300">
-                  <h3 className="text-amber-500 font-black text-2xl md:text-3xl uppercase tracking-tighter mb-4 flex items-center gap-3 animate-pulse">
-                    <Zap className="h-8 w-8" fill="currentColor" /> 
-                    Downloading Local AI Brain (150MB+) 
-                    <Zap className="h-8 w-8" fill="currentColor" />
+                <div className="mb-12 bg-amber-600/20 border-[6px] border-amber-500/80 rounded-[3rem] p-10 shadow-[0_0_80px_rgba(245,158,11,0.4)] animate-in zoom-in duration-300 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent animate-pulse" />
+                  <h3 className="text-amber-400 font-black text-3xl md:text-5xl uppercase tracking-tighter mb-6 flex items-center gap-6 z-10 relative">
+                    <Zap className="h-12 w-12 fill-amber-500" /> 
+                    Downloading "The Neural Stand" (150MB+)
                   </h3>
-                  <p className="font-mono text-amber-200/70 text-sm md:text-base mb-6 bg-black/60 p-4 rounded-xl border border-amber-500/30 overflow-hidden text-ellipsis whitespace-nowrap">
-                    TARGET: {downloadStats.file || 'models/Xenova/whisper-tiny'}
-                  </p>
-                  
-                  {/* Sub-progress bar for current file */}
-                  <div className="flex justify-between font-mono text-amber-400 mb-2 font-black text-lg">
-                    <span>{Math.round(downloadStats.loaded / 1024 / 1024 * 10) / 10} MB / {Math.round(downloadStats.total / 1024 / 1024 * 10) / 10} MB</span>
+                  <div className="flex justify-between font-mono text-amber-300 mb-4 font-black text-2xl z-10 relative">
+                    <span>{Math.round(downloadStats.loaded / 1024 / 1024)}MB / {Math.round(downloadStats.total / 1024 / 1024)}MB</span>
                     <span>{Math.round(downloadStats.percentage)}%</span>
                   </div>
-                  <div className="h-4 bg-black/80 rounded-full overflow-hidden border border-amber-900 shadow-inner">
-                    <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${Math.max(0, downloadStats.percentage)}%` }} />
+                  <div className="h-6 bg-black/80 rounded-full border-2 border-amber-500/50 shadow-inner z-10 relative overflow-hidden">
+                    <div className="h-full bg-amber-400 transition-all duration-300" style={{ width: `${Math.max(0, downloadStats.percentage)}%` }} />
                   </div>
                 </div>
               )}
 
-              {/* Stepper bubbles */}
-              <div className="space-y-4 max-w-xl mx-auto opacity-90">
-                {/* Step 1 */}
-                <div className={`${SOFT_PILL} ${activeStep === 1 ? 'scale-105 border-fuchsia-500 bg-[#2d1b36] shadow-[0_10px_40px_rgba(217,70,239,0.3)]' : activeStep > 1 ? 'opacity-30' : 'opacity-10'}`}>
-                  <div className={`p-4 rounded-[1.5rem] ${activeStep === 1 ? 'bg-fuchsia-500 text-white shadow-[inset_0_-4px_8px_rgba(0,0,0,0.4)]' : 'bg-slate-800 text-slate-500'}`}>
-                    <HardDrive className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-slate-200 tracking-wide lowercase text-xl">1. virtual mount</h4>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">ffmpeg.wasm injection</p>
-                  </div>
-                </div>
-
-                {/* Step 2 */}
-                <div className={`${SOFT_PILL} ${activeStep === 2 ? 'scale-105 border-rose-500 bg-[#361a1e] shadow-[0_10px_40px_rgba(244,63,94,0.3)]' : activeStep > 2 ? 'opacity-30' : 'opacity-10'}`}>
-                  <div className={`p-4 rounded-[1.5rem] ${activeStep === 2 ? 'bg-rose-500 text-white shadow-[inset_0_-4px_8px_rgba(0,0,0,0.4)] animate-[bounce_0.5s_infinite]' : 'bg-slate-800 text-slate-500'}`}>
-                    <Cpu className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-slate-200 tracking-wide lowercase text-xl">2. raw acoustic extraction</h4>
-                    <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest bg-rose-500/10 px-2 py-1 rounded inline-block mt-1">DANGER: Float32Array Max CPU Load</p>
-                  </div>
-                </div>
-
-                {/* Step 3 */}
-                <div className={`${SOFT_PILL} ${activeStep === 3 ? 'scale-105 border-amber-500 bg-[#362512] shadow-[0_10px_40px_rgba(245,158,11,0.3)]' : activeStep > 3 ? 'opacity-30' : 'opacity-10'}`}>
-                  <div className={`p-4 rounded-[1.5rem] ${activeStep === 3 ? 'bg-amber-500 text-black shadow-[inset_0_-4px_8px_rgba(0,0,0,0.4)] animate-pulse' : 'bg-slate-800 text-slate-500'}`}>
-                    <Radio className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-slate-200 tracking-wide lowercase text-xl">3. load onnx graph</h4>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">transformers.js weights</p>
-                  </div>
-                </div>
-
-                {/* Step 4 */}
-                <div className={`${SOFT_PILL} ${activeStep === 4 ? 'scale-105 border-lime-400 bg-[#223616] shadow-[0_10px_40px_rgba(163,230,53,0.3)]' : activeStep > 4 ? 'opacity-30' : 'opacity-10'}`}>
-                  <div className={`p-4 rounded-[1.5rem] ${activeStep === 4 ? 'bg-lime-400 text-lime-950 shadow-[inset_0_-4px_8px_rgba(0,0,0,0.4)] animate-[spin_2s_linear_infinite]' : 'bg-slate-800 text-slate-500'}`}>
-                    <AlignLeft className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-slate-200 tracking-wide lowercase text-xl">4. active transcribing</h4>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">crunching matrix into text</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Status Footer Log */}
-              <div className="mt-12 bg-black/80 text-cyan-400 p-6 rounded-[2rem] text-center shadow-[inset_0_4px_20px_rgba(0,0,0,1)] border border-slate-800 mx-auto w-full backdrop-blur-3xl overflow-hidden relative">
-                <div className="absolute inset-0 bg-[linear-gradient(transparent,rgba(34,211,238,0.1),transparent)] animate-[scan_2s_ease-in-out_infinite]" />
-                <span className="font-mono text-xs md:text-sm uppercase tracking-[0.3em] font-black z-10 relative">
-                  &gt; {statusText || 'INITIALIZING SYSTEMS...'} _
+              {/* Status Header Log */}
+              <div className="bg-black/90 text-lime-400 p-8 rounded-[2.5rem] shadow-[inset_0_4px_30px_rgba(0,0,0,1)] border-2 border-white/5 overflow-hidden text-center relative mb-12">
+                <div className="absolute inset-0 bg-[linear-gradient(transparent,rgba(163,230,53,0.1),transparent)] animate-[scan_1.5s_ease-in-out_infinite]" />
+                <span className="font-mono text-sm md:text-xl uppercase tracking-[0.4em] font-black z-10 relative">
+                   &gt; {statusText || 'GATHERING STAND ENERGY...'} _
                 </span>
               </div>
-            </div>
           </div>
         )}
 
-        {/* State C: Error */}
-        {status === 'error' && (
-          <div className={`${TACTILE_BOX} p-16 text-center`}>
-            <div className="bg-rose-500 text-white w-40 h-40 mx-auto rounded-[4rem] shadow-[inset_0_-10px_30px_rgba(0,0,0,0.5),0_0_80px_rgba(244,63,94,0.6)] flex items-center justify-center mb-10 rotate-12 hover:rotate-0 transition-transform">
-              <Skull className="h-20 w-20" strokeWidth={2.5} />
+         {/* (C) Error & (D) Completed States - Styled similarly with black/fuchsia theme */}
+         {status === 'error' && (
+          <div className={`${TACTILE_BOX} p-16 text-center border-4 border-rose-500/50`}>
+            <div className="bg-rose-600 text-white w-48 h-48 mx-auto rounded-[4rem] shadow-[0_0_80px_rgba(244,63,94,0.6)] flex items-center justify-center mb-12 rotate-[-12deg]">
+              <Flame className="h-24 w-24 fill-white" />
             </div>
-            <h2 className="text-6xl font-black lowercase tracking-tighter text-rose-500 mb-6 drop-shadow-[0_0_20px_rgba(244,63,94,0.5)]">critical failure.</h2>
-            <p className="bg-black/80 text-rose-300 px-8 py-6 rounded-3xl font-mono text-sm max-w-2xl mx-auto mb-16 border border-rose-900 shadow-inner overflow-hidden text-left">
-              <span className="text-rose-600 block mb-2">FATAL ERROR LOG:</span>
-              {statusText}
+            <h2 className="text-7xl font-black lowercase tracking-tighter text-rose-500 mb-8 drop-shadow-[0_0_30px_rgba(244,63,94,0.5)]">catastrophic collapse.</h2>
+            <p className="bg-black text-rose-400 p-8 rounded-[3rem] font-mono text-lg border-2 border-rose-900 shadow-inner mb-16">
+               {statusText}
             </p>
-            <button 
-              onClick={resetState}
-              onMouseEnter={() => setHoverQuote('「再來一次？人類還真是不懂放棄啊...」')}
-              onMouseLeave={() => setHoverQuote('')}
-              className={`${CLAY_BUTTON} px-12 py-6 text-xl bg-white text-slate-950 flex items-center gap-4 mx-auto`}
-            >
-              <RefreshCw className="h-8 w-8" strokeWidth={3} /> reboot system
+            <button onClick={resetState} className={`${CLAY_BUTTON} px-14 py-8 text-2xl bg-white text-slate-950 flex items-center gap-6 mx-auto`}>
+               <RefreshCw className="h-10 w-10 font-black" strokeWidth={4} /> Restart Destiny
             </button>
           </div>
         )}
 
-        {/* State D: Completed */}
         {status === 'completed' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-12 duration-700">
-            <div className={`${TACTILE_BOX} p-8 md:p-14`}>
-              
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12 border-b-2 border-slate-800 pb-10">
-                <div>
-                  <h2 className="text-6xl font-black lowercase tracking-tighter text-white flex items-center gap-6 drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-                    <span className="bg-lime-400 text-lime-950 p-4 rounded-[2rem] shadow-[inset_0_-8px_16px_rgba(0,0,0,0.5),0_10px_40px_rgba(163,230,53,0.4)] rotate-[6deg]">
-                      <CheckCircle2 className="h-12 w-12" strokeWidth={3} />
-                    </span>
-                    done.
-                  </h2>
-                  <p className="text-slate-400 mt-6 font-bold lowercase tracking-widest text-sm bg-black/60 px-6 py-3 rounded-full border border-slate-800 w-fit">
-                    {file?.name}
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                  <button 
-                    onClick={resetState}
-                    onMouseEnter={() => setHoverQuote('「又要上傳新的？放過我好嗎？」')}
-                    onMouseLeave={() => setHoverQuote('')}
-                    className={`${CLAY_BUTTON} px-10 py-5 bg-black/50 text-slate-300 hover:bg-slate-800 hover:text-white text-sm border-slate-800 backdrop-blur-md`}
-                  >
-                    new file
-                  </button>
-                  <button 
-                    onClick={handleExport}
-                    onMouseEnter={() => setHoverQuote('「給我下載！這可是我嘔心瀝血聽出來的！」')}
-                    onMouseLeave={() => setHoverQuote('')}
-                    className={`${CLAY_BUTTON} px-10 py-5 bg-cyan-400 text-cyan-950 flex items-center justify-center gap-3 text-sm shadow-[0_10px_40px_rgba(34,211,238,0.4)] hover:bg-cyan-300 group`}
-                  >
-                    <FileDown className="h-6 w-6 stroke-[3] group-hover:translate-y-1 transition-transform" /> save `.md`
-                  </button>
-                </div>
-              </div>
-              
-              <div className="bg-black/70 rounded-[3rem] p-8 md:p-10 border border-slate-800 shadow-[inset_0_20px_50px_rgba(0,0,0,1)] relative">
-                <div className="absolute top-0 right-0 p-8 z-10">
-                  <span className="text-xs font-black text-lime-950 bg-lime-400 px-6 py-3 rounded-full shadow-[0_0_30px_rgba(163,230,53,0.5)] uppercase tracking-widest">
-                    success mission
+          <div className={`${TACTILE_BOX} p-10 md:p-16 border-4 border-lime-500/30`}>
+             <div className="flex flex-col md:flex-row justify-between items-center gap-10 mb-12 border-b-2 border-slate-800 pb-12">
+                <h2 className="text-7xl md:text-8xl font-black lowercase tracking-tighter text-white flex items-center gap-8">
+                  <span className="bg-lime-400 text-lime-950 p-6 rounded-[3rem] shadow-[0_15px_60px_rgba(163,230,53,0.5)] rotate-[8deg]">
+                    <CheckCircle2 className="h-16 w-16" strokeWidth={4} />
                   </span>
+                  awoken.
+                </h2>
+                <div className="flex gap-6">
+                  <button onClick={resetState} className={`${CLAY_BUTTON} px-12 py-6 bg-slate-900 text-white text-lg`}>New Case</button>
+                  <button onClick={handleExport} className={`${CLAY_BUTTON} px-12 py-6 bg-cyan-400 text-cyan-950 flex items-center gap-4 text-lg`}>
+                    <FileDown className="h-8 w-8 stroke-[4]" /> Save Grimoire
+                  </button>
                 </div>
-                <h3 className="text-sm font-black text-fuchsia-500 uppercase tracking-[0.3em] mb-8 pl-4 flex items-center gap-3">
-                  <AlignLeft className="w-5 h-5" />
-                  Raw Output Node
-                </h3>
+             </div>
+             <div className="bg-black/80 rounded-[4rem] p-10 border-2 border-slate-800 shadow-[inset_0_30px_100px_rgba(0,0,0,1)]">
                 <textarea 
                   readOnly
-                  className="w-full h-[500px] font-mono p-10 bg-black/40 border border-slate-800/50 rounded-[2.5rem] text-[13px] leading-loose text-slate-300 focus:outline-none shadow-[inset_0_5px_20px_rgba(0,0,0,0.8)] resize-none custom-scrollbar" 
+                  className="w-full h-[600px] font-mono bg-transparent border-none rounded-none text-lg leading-relaxed text-slate-300 focus:outline-none resize-none custom-scrollbar" 
                   value={generateMarkdownPreview()} 
                 />
-              </div>
-
-            </div>
+             </div>
           </div>
         )}
       </main>
 
-      {/* Floating Pessimistic Companion (天竺鼠車車羊毛氈風 章魚星人) */}
+      {/* Floating Pessimistic Companion */}
       <div 
-        className="fixed top-0 left-0 pointer-events-none z-50 transition-all duration-[800ms] ease-out flex flex-col items-center drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]"
-        style={{ transform: `translate(${mascotPos.x + 30}px, ${mascotPos.y - 10}px) rotate(${targetTilt}deg)` }}
+        className="fixed top-0 left-0 pointer-events-none z-50 transition-all duration-[700ms] ease-out flex flex-col items-center drop-shadow-[0_20px_50px_rgba(0,0,0,0.9)]"
+        style={{ transform: `translate(${mascotPos.x + 30}px, ${mascotPos.y - 20}px) rotate(${targetTilt}deg)` }}
       >
-        {/* Transparent Mascot Body */}
         <img 
           src="/mascot.png" 
-          alt="Pessimistic Space Octopus Buddy" 
-          className="w-28 h-28 md:w-36 md:h-36 object-contain drop-shadow-[0_0_50px_rgba(217,70,239,0.3)] animate-[bounce_2.5s_ease-in-out_infinite]" 
+          alt="Space Octopus" 
+          className="w-32 h-32 md:w-44 md:h-44 object-contain animate-[bounce_2s_ease-in-out_infinite]" 
         />
-        
-        {/* Dynamic Speech Bubble based on Status and Hover */}
-        <div className="mt-2 bg-white/10 backdrop-blur-3xl px-6 py-4 rounded-3xl border-2 border-fuchsia-500/30 text-sm md:text-base font-black text-fuchsia-300 shadow-[0_20px_50px_rgba(0,0,0,0.8)] opacity-100 transition-opacity whitespace-nowrap" style={{ transform: `rotate(${-targetTilt * 0.5}deg)` }}>
+        <div className="mt-4 bg-white/10 backdrop-blur-3xl px-8 py-5 rounded-[2.5rem] border-2 border-fuchsia-500/40 text-sm md:text-lg font-black text-fuchsia-200 shadow-2xl whitespace-nowrap" style={{ transform: `rotate(${-targetTilt * 0.4}deg)` }}>
           {getMascotSpeech()}
         </div>
       </div>
@@ -531,67 +431,45 @@ export default function TranscriptionPage() {
       {/* Extreme JoJo Bizarre Adventure Overlay Effect */}
       {showJojo && (
         <div className="fixed inset-0 z-[100] pointer-events-none flex flex-col items-center justify-center overflow-hidden">
-          
-          {/* Intense CSS Comic Speedlines */}
           <div className="absolute inset-0 opacity-80 mix-blend-screen" 
                style={{ 
-                 background: 'repeating-conic-gradient(from 0deg, rgba(255,255,255,0) 0deg 3deg, rgba(255,255,255,1) 3deg 5deg, rgba(255,255,255,0) 5deg 8deg)',
-                 animation: 'spin 0.5s linear infinite',
-                 maskImage: 'radial-gradient(circle, transparent 15%, black 90%)'
+                 background: 'repeating-conic-gradient(from 0deg, rgba(255,255,255,0) 0deg 2deg, rgba(255,255,255,1) 2deg 4deg, rgba(255,255,255,0) 4deg 8deg)',
+                 animation: 'spin 0.4s linear infinite',
+                 maskImage: 'radial-gradient(circle, transparent 20%, black 95%)'
                }} 
           />
-          <div className="absolute inset-0 opacity-90 mix-blend-color-dodge bg-gradient-to-t from-rose-600/50 via-transparent to-fuchsia-600/50 animate-pulse" />
-          
-          {/* Onomatopoeia 1 */}
-          <div className="absolute top-[5%] left-[-10%] md:left-[2%] text-8xl md:text-[12rem] font-black text-rose-500 opacity-100 rotate-[-15deg] drop-shadow-[10px_10px_0_rgba(255,255,255,1)] animate-in slide-in-from-left-40 duration-200">
-            ゴゴゴゴゴ...
+          <div className="absolute inset-0 opacity-90 mix-blend-color-dodge bg-gradient-to-t from-rose-600 via-transparent to-fuchsia-700 animate-pulse" />
+          <div className="absolute top-[5%] left-[2%] text-9xl md:text-[15rem] font-black text-rose-500 rotate-[-15deg] drop-shadow-[15px_15px_0_rgba(255,255,255,1)]">ゴゴゴゴ...</div>
+          <div className="absolute bottom-[5%] right-[2%] text-9xl md:text-[15rem] font-black text-cyan-400 rotate-[10deg] drop-shadow-[15px_15px_0_rgba(255,255,255,1)]">ドドドド!!</div>
+          <div className="relative z-10 bg-black border-[15px] border-white p-12 md:p-24 max-w-[95%] text-center transform shadow-[50px_50px_0_rgba(217,70,239,1)] rotate-[-2deg]">
+             <h2 className="text-5xl md:text-8xl font-black text-white leading-tight tracking-tighter">「{currentQuote}」</h2>
           </div>
-          
-          {/* Onomatopoeia 2 */}
-          <div className="absolute bottom-[5%] right-[-10%] md:right-[2%] text-8xl md:text-[12rem] font-black text-cyan-400 opacity-100 rotate-[10deg] drop-shadow-[10px_10px_0_rgba(255,255,255,1)] animate-in slide-in-from-right-40 duration-200 delay-75">
-             ドドドドド!!
-          </div>
-
-          {/* Epic Manga Quote Box */}
-          <div className="relative z-10 bg-black border-[12px] border-white p-10 md:p-20 max-w-[95%] md:max-w-5xl text-center transform shadow-[30px_30px_0_rgba(217,70,239,1)] animate-in zoom-in spin-in-6 duration-[250ms] rotate-[-3deg]">
-            {/* Action Flash lines on the box */}
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiAvPgo8cGF0aCBkPSJNMCAwTDggOFpNOCAwTDAgOFoiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIwLjUiIG9wYWNpdHk9IjAuMSIgLz4KPC9zdmc+')] opacity-50 pointer-events-none mix-blend-screen" />
-            
-            <h2 className="text-4xl md:text-7xl font-black text-white leading-tight tracking-tighter" style={{ fontFamily: '"Noto Serif TC", serif' }}>
-              「{currentQuote}」
-            </h2>
-          </div>
-
-          <style dangerouslySetInnerHTML={{__html: `
-            @keyframes shake {
-              0% { transform: translate(10px, 10px) rotate(0deg); }
-              20% { transform: translate(-10px, 0px) rotate(2deg); }
-              40% { transform: translate(10px, -10px) rotate(-1deg); }
-              60% { transform: translate(-10px, 10px) rotate(0deg); }
-              80% { transform: translate(-10px, -10px) rotate(1deg); }
-              100% { transform: translate(10px, -10px) rotate(-2deg); }
-            }
-            @keyframes spin {
-              100% { transform: rotate(360deg); }
-            }
-            @keyframes scan {
-              0% { transform: translateY(-100%); }
-              100% { transform: translateY(100%); }
-            }
-            .custom-scrollbar::-webkit-scrollbar {
-              width: 12px;
-            }
-            .custom-scrollbar::-webkit-scrollbar-track {
-              background: rgba(0,0,0,0.5);
-              border-radius: 20px;
-            }
-            .custom-scrollbar::-webkit-scrollbar-thumb {
-              background: rgba(217,70,239,0.5);
-              border-radius: 20px;
-            }
-          `}} />
         </div>
       )}
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes jojo-dance {
+          0% { transform: scale(1) rotate(0deg) skewX(0deg); }
+          25% { transform: scale(1.1) rotate(15deg) skewX(10deg); filter: hue-rotate(90deg) brightness(1.5); }
+          50% { transform: scale(1) rotate(-10deg) skewX(-10deg); filter: hue-rotate(180deg) brightness(1.2); }
+          75% { transform: scale(1.2) rotate(5deg) skewX(5deg); filter: hue-rotate(270deg) brightness(1.5); }
+          100% { transform: scale(1) rotate(0deg) skewX(0deg); }
+        }
+        @keyframes jojo-spin {
+          0% { transform: rotate(0deg) scale(1); filter: hue-rotate(0deg); }
+          100% { transform: rotate(360deg) scale(1.5); filter: hue-rotate(360deg); }
+        }
+        @keyframes shake {
+          0% { transform: translate(10px, 10px) rotate(0deg); }
+          20% { transform: translate(-10px, 0px) rotate(2deg); }
+          100% { transform: translate(10px, -10px) rotate(-2deg); }
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+        .custom-scrollbar::-webkit-scrollbar { width: 15px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.8); border-radius: 20px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: linear-gradient(to bottom, #d946ef, #22d3ee); border-radius: 20px; }
+      `}} />
     </div>
   );
 }
