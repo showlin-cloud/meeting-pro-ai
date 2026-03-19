@@ -421,7 +421,7 @@ export default function TranscriptionPage() {
               <div className="mt-12 bg-black/80 text-cyan-400 p-6 rounded-[2rem] text-center shadow-[inset_0_4px_20px_rgba(0,0,0,1)] border border-slate-800 mx-auto w-full backdrop-blur-3xl overflow-hidden relative">
                 <div className="absolute inset-0 bg-[linear-gradient(transparent,rgba(34,211,238,0.1),transparent)] animate-[scan_2s_ease-in-out_infinite]" />
                 <span className="font-mono text-xs md:text-sm uppercase tracking-[0.3em] font-black z-10 relative">
-                  > {statusText || 'INITIALIZING SYSTEMS...'} _
+                  &gt; {statusText || 'INITIALIZING SYSTEMS...'} _
                 </span>
               </div>
             </div>
