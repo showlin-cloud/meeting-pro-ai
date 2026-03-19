@@ -248,15 +248,16 @@ export default function TranscriptionPage() {
   };
 
   return (
-    <div className={`w-full min-h-screen bg-[#06080f] text-slate-200 font-sans pt-12 pb-24 px-6 md:px-12 selection:bg-fuchsia-500 selection:text-white relative overflow-hidden ${showJojo ? 'animate-[shake_0.1s_linear_infinite]' : ''}`}>
+    <div className={`w-full min-h-screen bg-[#04060b] bg-[url('/bg-starry.png')] bg-cover bg-center bg-fixed text-slate-200 font-sans pt-12 pb-24 px-6 md:px-12 selection:bg-fuchsia-500 selection:text-white relative overflow-hidden ${showJojo ? 'animate-[shake_0.1s_linear_infinite]' : ''}`}>
       
-      {/* Absolute Madness: Dark Y2K Neon Blobs */}
+      {/* Background Decorative Space Blobs (Y2K Neon Dark Energy overlapping the Stars) */}
+      <div className="absolute inset-0 bg-[#06080f]/50 pointer-events-none" />
       <div 
-        className="fixed top-[-30%] left-[-20%] w-[80vw] h-[80vw] rounded-full bg-gradient-to-tr from-fuchsia-600/40 to-purple-800/40 blur-[120px] -z-10 animate-pulse mix-blend-color-dodge pointer-events-none transition-transform duration-[200ms] ease-out" 
+        className="fixed top-[-30%] left-[-20%] w-[80vw] h-[80vw] rounded-full bg-gradient-to-tr from-fuchsia-600/50 to-purple-800/50 blur-[120px] 0 animate-pulse mix-blend-color-dodge pointer-events-none transition-transform duration-[200ms] ease-out" 
         style={{ transform: `translate(${-mousePos.x}px, ${-mousePos.y}px)`, animationDuration: '4s' }} 
       />
       <div 
-        className="fixed bottom-[-20%] right-[-20%] w-[70vw] h-[70vw] rounded-full bg-gradient-to-tl from-cyan-400/40 to-lime-500/20 blur-[120px] -z-10 animate-pulse mix-blend-color-dodge pointer-events-none transition-transform duration-[200ms] ease-out" 
+        className="fixed bottom-[-20%] right-[-20%] w-[70vw] h-[70vw] rounded-full bg-gradient-to-tl from-cyan-400/50 to-lime-500/40 blur-[120px] 0 animate-pulse mix-blend-color-dodge pointer-events-none transition-transform duration-[200ms] ease-out" 
         style={{ transform: `translate(${mousePos.x}px, ${mousePos.y}px)`, animationDuration: '7s' }} 
       />
       
@@ -511,20 +512,18 @@ export default function TranscriptionPage() {
 
       {/* Floating Pessimistic Companion (天竺鼠車車羊毛氈風 章魚星人) */}
       <div 
-        className="fixed top-0 left-0 pointer-events-none z-50 transition-all duration-[800ms] ease-out flex flex-col items-center drop-shadow-[0_20px_30px_rgba(0,0,0,0.9)] mix-blend-normal"
-        style={{ transform: `translate(${mascotPos.x + 30}px, ${mascotPos.y + 30}px) rotate(${targetTilt}deg)` }}
+        className="fixed top-0 left-0 pointer-events-none z-50 transition-all duration-[800ms] ease-out flex flex-col items-center drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]"
+        style={{ transform: `translate(${mascotPos.x + 30}px, ${mascotPos.y - 10}px) rotate(${targetTilt}deg)` }}
       >
-        {/* The generated green-background felt octopus, cropped beautifully using a circle mask and heavy borders */}
-        <div className="w-32 h-32 md:w-44 md:h-44 rounded-full overflow-hidden border-[6px] border-[#0a0f1a] shadow-[0_0_60px_rgba(217,70,239,0.5)] bg-[#00FF00]">
-          <img 
-            src="/mascot.png" 
-            alt="Pessimistic Space Octopus Buddy" 
-            className="w-[124%] h-[124%] -ml-[12%] -mt-[12%] object-cover animate-[bounce_2.5s_ease-in-out_infinite]" 
-          />
-        </div>
+        {/* Transparent Mascot Body */}
+        <img 
+          src="/mascot.png" 
+          alt="Pessimistic Space Octopus Buddy" 
+          className="w-28 h-28 md:w-36 md:h-36 object-contain drop-shadow-[0_0_50px_rgba(217,70,239,0.3)] animate-[bounce_2.5s_ease-in-out_infinite]" 
+        />
         
         {/* Dynamic Speech Bubble based on Status and Hover */}
-        <div className="mt-6 bg-white/10 backdrop-blur-2xl px-6 py-4 rounded-3xl border-2 border-fuchsia-500/30 text-sm md:text-base font-black text-fuchsia-300 shadow-[0_20px_50px_rgba(0,0,0,0.8)] opacity-100 transition-opacity whitespace-nowrap" style={{ transform: `rotate(${-targetTilt * 0.5}deg)` }}>
+        <div className="mt-2 bg-white/10 backdrop-blur-3xl px-6 py-4 rounded-3xl border-2 border-fuchsia-500/30 text-sm md:text-base font-black text-fuchsia-300 shadow-[0_20px_50px_rgba(0,0,0,0.8)] opacity-100 transition-opacity whitespace-nowrap" style={{ transform: `rotate(${-targetTilt * 0.5}deg)` }}>
           {getMascotSpeech()}
         </div>
       </div>
