@@ -23,6 +23,7 @@ export default function TranscriptionPage() {
   const [showJojo, setShowJojo] = useState(false);
   const [currentQuote, setCurrentQuote] = useState("");
   const [hoverQuote, setHoverQuote] = useState("");
+  const [isModelReady, setIsModelReady] = useState(false);
   
   const [downloadStats, setDownloadStats] = useState({ file: '', loaded: 0, total: 0, percentage: 0 });
   
@@ -38,11 +39,86 @@ export default function TranscriptionPage() {
     "「世界」啊！停止這無意義的時間吧！由我來終結這段錄音！"
   ];
 
+  const [segments, setSegments] = useState<TranscriptSegment[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const engineRef = useRef<LocalWhisperEngine | null>(null);
+
+  // Initialize engine on mount for background pre-loading
   useEffect(() => {
     // Set initial position after mount
     setMascotPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
     lastMousePosRef.current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     
+    // Create and Init Engine Backgroundly
+    const engine = new LocalWhisperEngine((event) => {
+      if (event.type === 'model_progress') {
+        const modelP = event.progress || 0;
+        
+        // If we are currently processing, update main progress
+        // Transition: 35% -> 50% for model loading
+        if (statusRef.current === 'processing') {
+          setActiveStep(3);
+          setProgress(35 + Math.round((modelP / 100) * 15));
+        }
+
+        if (event.status === 'initiate') {
+          setStatusText(`[降臨] 正在召喚深淵模組: ${event.file || 'models'}...`);
+        } else if (event.status === 'progress' && event.file) {
+          setDownloadStats({
+            file: event.file,
+            loaded: (event as any).loaded || 0,
+            total: (event as any).total || 0,
+            percentage: event.progress || 0
+          });
+        } else if (event.status === 'ready') {
+          setStatusText(`[模組完全覺醒]: ${event.file || 'layer_1'} ✨`);
+          setIsModelReady(true);
+        }
+      } else if (event.type === 'ready') {
+        setIsModelReady(true);
+        if (statusRef.current === 'processing') {
+          setActiveStep(4);
+          setStatusText('『替身：SILENT PRODUCER』完全顯現！開展領域：真實之言！');
+          // Engine is ready, if processing, it likely needs a kick-start or is waiting for transcribe call
+        }
+      } else if (event.type === 'chunk_update') {
+        if (statusRef.current === 'processing') {
+          setProgress((prev) => (prev < 98 ? prev + 1 : prev));
+          setStatusText('正在將混沌的音波轉化為智慧的文字...');
+          if (event.output && Array.isArray(event.output)) {
+            const mappedSegments = event.output.map((o: any) => ({
+              timestamp: o.timestamp ? `${o.timestamp[0]} - ${o.timestamp[1] || '...'}` : 'unknown',
+              speaker: 'speaker_1',
+              text: o.text || ""
+            }));
+            setSegments(mappedSegments);
+          }
+        }
+      } else if (event.type === 'complete') {
+        if (statusRef.current === 'processing') {
+          if (event.result && event.result.chunks) {
+            const finalSegments = event.result.chunks.map((chunk: any) => ({
+              timestamp: chunk.timestamp ? `${chunk.timestamp[0]} - ${chunk.timestamp[1] || 'end'}` : 'unknown',
+              speaker: 'speaker_1',
+              text: chunk.text || ""
+            }));
+            setSegments(finalSegments);
+          }
+          setProgress(100);
+          setStatusText('完全理解。所有秘密皆在此顯現。 🍒');
+          setStatus('completed');
+          setActiveStep(5);
+        }
+      } else if (event.type === 'error') {
+        setStatus('error');
+        setStatusText(event.message);
+      }
+    });
+
+    engineRef.current = engine;
+    engine.init(); // Start background download
+
     const handleMouseMove = (e: MouseEvent) => {
       // MEGA Y2K SHIFT (Aggressive shift for background)
       const x = (e.clientX / window.innerWidth - 0.5) * 800;
@@ -64,19 +140,21 @@ export default function TranscriptionPage() {
       }, 100);
     };
     window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      engine.terminate();
+    };
   }, []);
+
+  // Persistent ref for status to check inside stable engine callback
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
 
   const triggerJojoEffect = () => {
     setCurrentQuote(jojoUploadQuotes[Math.floor(Math.random() * jojoUploadQuotes.length)]);
     setShowJojo(true);
     setTimeout(() => setShowJojo(false), 4500); 
   };
-
-  const [segments, setSegments] = useState<TranscriptSegment[]>([]);
-  const [file, setFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const engineRef = useRef<any>(null);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -115,6 +193,8 @@ export default function TranscriptionPage() {
 
   const startProcessing = async (targetFile: File) => {
     try {
+      if (!engineRef.current) throw new Error("Engine not ready.");
+
       triggerJojoEffect(); 
       setStatus('processing');
       setProgress(0);
@@ -134,67 +214,10 @@ export default function TranscriptionPage() {
       await new Promise(resolve => setTimeout(resolve, 500));
       const audioData = await decodeAudioBlobToFloat32Array(audioBlob);
 
-      setActiveStep(3);
-      setStatusText('覺醒吧！神經網路的大腦... 正在降臨！🧠');
-      setProgress(35);
-
-      const engine = new LocalWhisperEngine((event) => {
-        if (event.type === 'model_progress') {
-          setActiveStep(3);
-          const modelP = event.progress || 0;
-          setProgress(35 + Math.round((modelP / 100) * 15));
-          
-          if (event.status === 'initiate') {
-            setStatusText(`[降臨] 正在召喚深淵模組: ${event.file || 'models'}...`);
-          } else if (event.status === 'progress' && event.file) {
-            setDownloadStats({
-              file: event.file,
-              loaded: (event as any).loaded || 0,
-              total: (event as any).total || 0,
-              percentage: event.progress || 0
-            });
-            setStatusText(`[傳輸中] 注入神經元 ${event.file}... ${Math.round(modelP)}%`);
-          } else if (event.status === 'ready') {
-            setStatusText(`[模組完全覺醒]: ${event.file || 'layer_1'} ✨`);
-          } else {
-            setStatusText(`[系統強化] 鎖定瀏覽器記憶體... ${Math.round(modelP)}%`);
-          }
-        } else if (event.type === 'ready') {
-          setActiveStep(4);
-          setStatusText('『替身：SILENT PRODUCER』完全顯現！開展領域：真實之言！');
-          engine.transcribe(audioData);
-        } else if (event.type === 'chunk_update') {
-          setProgress((prev) => (prev < 98 ? prev + 1 : prev));
-          setStatusText('正在將混沌的音波轉化為智慧的文字...');
-          if (event.output && Array.isArray(event.output)) {
-            const mappedSegments = event.output.map((o: any) => ({
-              timestamp: o.timestamp ? `${o.timestamp[0]} - ${o.timestamp[1] || '...'}` : 'unknown',
-              speaker: 'speaker_1',
-              text: o.text
-            }));
-            setSegments(mappedSegments);
-          }
-        } else if (event.type === 'complete') {
-          if (event.result && event.result.chunks) {
-            const finalSegments = event.result.chunks.map((chunk: any) => ({
-              timestamp: chunk.timestamp ? `${chunk.timestamp[0]} - ${chunk.timestamp[1] || 'end'}` : 'unknown',
-              speaker: 'speaker_1',
-              text: chunk.text
-            }));
-            setSegments(finalSegments);
-          }
-          setProgress(100);
-          setStatusText('完全理解。所有秘密皆在此顯現。 🍒');
-          setStatus('completed');
-          setActiveStep(5);
-        } else if (event.type === 'error') {
-          setStatus('error');
-          setStatusText(event.message);
-        }
-      });
-
-      engineRef.current = engine;
-      engine.init();
+      setActiveStep(4); 
+      setProgress(50);
+      setStatusText('『替身：SILENT PRODUCER』完全顯現！開展領域：真實之言！');
+      engineRef.current.transcribe(audioData);
 
     } catch (err: any) {
       console.error(err);
@@ -446,6 +469,16 @@ export default function TranscriptionPage() {
           </div>
         </div>
       )}
+
+      {/* Footer Info / Neural Readiness */}
+      <footer className="fixed bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-6">
+        <div className={`flex items-center gap-3 px-6 py-3 rounded-full border-2 transition-all duration-500 backdrop-blur-xl ${isModelReady ? 'bg-lime-500/20 border-lime-400 text-lime-300 shadow-[0_0_30px_rgba(163,230,53,0.3)]' : 'bg-amber-500/10 border-amber-600/50 text-amber-500 animate-pulse'}`}>
+          <div className={`w-3 h-3 rounded-full ${isModelReady ? 'bg-lime-400 shadow-[0_0_10px_rgba(163,230,53,1)]' : 'bg-amber-500'}`} />
+          <span className="text-xs md:text-sm font-black uppercase tracking-widest leading-none">
+            {isModelReady ? 'Neural Stand: Fully Awoken' : 'Awakening Neural Stand...'}
+          </span>
+        </div>
+      </footer>
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes jojo-dance {
