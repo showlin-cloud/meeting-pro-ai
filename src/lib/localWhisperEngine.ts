@@ -17,6 +17,7 @@ export type WhisperEvent =
   | { type: 'ready' }
   | { type: 'chunk_update'; output: any }
   | { type: 'complete'; result: any }
+  | { type: 'log'; message: string }
   | { type: 'error'; message: string };
 
 export class LocalWhisperEngine {
@@ -50,6 +51,8 @@ export class LocalWhisperEngine {
           this.onEvent?.({ type: 'chunk_update', output: data });
         } else if (type === 'complete') {
           this.onEvent?.({ type: 'complete', result: data });
+        } else if (type === 'log') {
+          this.onEvent?.({ type: 'log', message: data });
         } else if (type === 'error') {
           this.onEvent?.({ type: 'error', message: error });
         }

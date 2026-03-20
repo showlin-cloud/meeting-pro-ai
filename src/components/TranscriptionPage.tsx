@@ -24,6 +24,8 @@ export default function TranscriptionPage() {
   const [currentQuote, setCurrentQuote] = useState("");
   const [hoverQuote, setHoverQuote] = useState("");
   const [isModelReady, setIsModelReady] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
   
   const [downloadStats, setDownloadStats] = useState({ file: '', loaded: 0, total: 0, percentage: 0 });
   
@@ -74,14 +76,18 @@ export default function TranscriptionPage() {
         } else if (event.status === 'ready') {
           setStatusText(`[模組完全覺醒]: ${event.file || 'layer_1'} ✨`);
           setIsModelReady(true);
+          setLogs((prev) => [...prev.slice(-19), `[SYSTEM] Model ready: ${event.file}`]);
         }
       } else if (event.type === 'ready') {
         setIsModelReady(true);
+        setLogs((prev) => [...prev.slice(-19), `[SYSTEM] Engine fully initialized.`]);
         if (statusRef.current === 'processing') {
           setActiveStep(4);
           setStatusText('『替身：SILENT PRODUCER』完全顯現！開展領域：真實之言！');
           // Engine is ready, if processing, it likely needs a kick-start or is waiting for transcribe call
         }
+      } else if (event.type === 'log') {
+        setLogs((prev) => [...prev.slice(-19), `[WORKER] ${event.message}`]);
       } else if (event.type === 'chunk_update') {
         if (statusRef.current === 'processing') {
           setProgress((prev) => (prev < 98 ? prev + 1 : prev));
@@ -217,12 +223,14 @@ export default function TranscriptionPage() {
       setActiveStep(4); 
       setProgress(50);
       setStatusText('『替身：SILENT PRODUCER』完全顯現！開展領域：真實之言！');
+      setLogs((prev) => [...prev.slice(-19), `[SYSTEM] Starting inference with ${audioData.length} samples...`]);
       engineRef.current.transcribe(audioData);
 
     } catch (err: any) {
       console.error(err);
       setStatus('error');
       setStatusText(err.message || 'unknown critical error');
+      setLogs((prev) => [...prev.slice(-19), `[ERROR] ${err.message}`]);
     }
   };
 
@@ -470,8 +478,30 @@ export default function TranscriptionPage() {
         </div>
       )}
 
+      {/* System Logs Console (Debug Stand) */}
+      {showLogs && (
+        <div className="fixed bottom-24 right-8 w-80 md:w-96 max-h-64 bg-black/95 border-2 border-fuchsia-500/50 rounded-3xl p-6 z-50 font-mono text-[10px] md:text-xs text-lime-400 overflow-y-auto shadow-[0_0_50px_rgba(217,70,239,0.3)] animate-in slide-in-from-bottom duration-300">
+          <div className="flex justify-between items-center mb-2 border-b border-fuchsia-500/30 pb-2">
+            <span className="font-black text-fuchsia-400">STATUS MONITOR</span>
+            <button onClick={() => setLogs([])} className="hover:text-white">CLEAR</button>
+          </div>
+          {logs.length === 0 ? (
+            <div className="italic text-slate-500">Waiting for system signals...</div>
+          ) : (
+            logs.map((log, i) => <div key={i} className="mb-1 leading-tight">{log}</div>)
+          )}
+        </div>
+      )}
+
       {/* Footer Info / Neural Readiness */}
       <footer className="fixed bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-6">
+        <button 
+          onClick={() => setShowLogs(!showLogs)}
+          className={`px-6 py-3 rounded-full border-2 transition-all duration-300 font-black text-xs uppercase tracking-widest ${showLogs ? 'bg-fuchsia-600 border-fuchsia-400 text-white' : 'bg-black/60 border-slate-700 text-slate-400 hover:border-fuchsia-500/50'}`}
+        >
+          {showLogs ? 'Dismiss Terminal' : 'Access Log'}
+        </button>
+
         <div className={`flex items-center gap-3 px-6 py-3 rounded-full border-2 transition-all duration-500 backdrop-blur-xl ${isModelReady ? 'bg-lime-500/20 border-lime-400 text-lime-300 shadow-[0_0_30px_rgba(163,230,53,0.3)]' : 'bg-amber-500/10 border-amber-600/50 text-amber-500 animate-pulse'}`}>
           <div className={`w-3 h-3 rounded-full ${isModelReady ? 'bg-lime-400 shadow-[0_0_10px_rgba(163,230,53,1)]' : 'bg-amber-500'}`} />
           <span className="text-xs md:text-sm font-black uppercase tracking-widest leading-none">
