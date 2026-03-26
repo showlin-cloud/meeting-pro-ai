@@ -4,7 +4,7 @@ import React, { useState, useRef, DragEvent, useEffect } from 'react';
 import FigmaContextAwareConsultant, { FigmaIntentParameters } from '@/components/FigmaContextAwareConsultant';
 import MindMapPreview from '@/components/MindMapPreview';
 import { 
-  FileDown, RefreshCw, CheckCircle2, AudioWaveform, Zap, Flame, Stars, FileAudio, Subtitles, HelpCircle, Network, StopCircle, Loader2, Clock, BarChart3
+  FileDown, RefreshCw, CheckCircle2, AudioWaveform, Zap, Flame, Stars, FileAudio, Subtitles, HelpCircle, Network, StopCircle, Loader2, Clock, BarChart3, Terminal, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 // Import Real Skills
@@ -36,6 +36,10 @@ export default function MeetingProDashboard() {
   const [eta, setEta] = useState<number | null>(null);
   const [completedChunksCount, setCompletedChunksCount] = useState(0);
   
+  // Debug Logging States
+  const [workerLogs, setWorkerLogs] = useState<string[]>([]);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(true);
+  
   // Y2K/JoJo UI States
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [mascotPos, setMascotPos] = useState({ x: 0, y: 0 });
@@ -46,6 +50,7 @@ export default function MeetingProDashboard() {
   
   const lastMousePosRef = useRef({ x: 0, y: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
 
   // Skill Instances
   const streamProcessor = useRef(new LocalStreamProcessor());
@@ -72,6 +77,11 @@ export default function MeetingProDashboard() {
     
     // Initialize transcriber
     transcriber.current = new WebWorkerTranscriber();
+    
+    transcriber.current.onLog((msg) => {
+      setWorkerLogs(prev => [...prev, `${new Date().toLocaleTimeString()} ${msg}`].slice(-100));
+    });
+
     transcriber.current.onResult((result) => {
       const { index, data } = result;
       setChunks(prev => {
@@ -90,7 +100,6 @@ export default function MeetingProDashboard() {
         if (transcriptionStartTime) {
           const totalDiscoveredChunks = chunks.length;
           const remaining = totalDiscoveredChunks - newCount;
-          
           if (remaining > 0) {
             const elapsed = (Date.now() - transcriptionStartTime) / 1000;
             const avgTimePerChunk = elapsed / newCount;
@@ -101,8 +110,6 @@ export default function MeetingProDashboard() {
         }
         return newCount;
       });
-      
-      console.log(`Received transcription for slice #${index}`);
     });
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -122,6 +129,12 @@ export default function MeetingProDashboard() {
       transcriber.current?.terminate();
     };
   }, [chunks.length, transcriptionStartTime]);
+
+  useEffect(() => {
+    if (consoleEndRef.current) {
+      consoleEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [workerLogs]);
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -145,6 +158,7 @@ export default function MeetingProDashboard() {
     setEta(null);
     setCompletedChunksCount(0);
     setTranscriptionStartTime(null);
+    setWorkerLogs([`${new Date().toLocaleTimeString()} [System] 初始化引擎...`]);
     const startT = Date.now();
     setStartTime(startT);
     setStatusText('啟動 LocalStreamProcessor... FFmpeg 正在壓制 PCM...');
@@ -153,7 +167,6 @@ export default function MeetingProDashboard() {
       await streamProcessor.current.processStream(
         targetFile,
         (pcmData, index) => {
-          // Set Transcription Start Time when the first chunk falls in
           if (index === 0) setTranscriptionStartTime(Date.now());
           
           setStatus('transcribing');
@@ -171,19 +184,18 @@ export default function MeetingProDashboard() {
           setProgress(p);
           if (p < 100) {
              setStatusText(`FFmpeg 切片進度: ${p}%`);
-             // ETA for Extraction
              const elapsed = (Date.now() - startT) / 1000;
              if (p > 5) setEta(Math.round((elapsed / (p / 100)) - elapsed));
           } else {
              setStatusText('音訊提取完畢。AI 正在進行逐字稿超速推理...');
-             // Note: We don't clear ETA here, it will be updated by transcription logic
           }
         }
       );
 
     } catch (err) {
       console.error(err);
-      setStatusText('系統發生錯誤！請檢查金鑰與音檔格式。');
+      setStatusText('系統發生錯誤！請查看下方神經調試日誌。');
+      setWorkerLogs(prev => [...prev, `${new Date().toLocaleTimeString()} [Critical] ${err}`]);
     }
   };
 
@@ -231,6 +243,7 @@ export default function MeetingProDashboard() {
     setProgress(0);
     setEta(null);
     setCompletedChunksCount(0);
+    setWorkerLogs([]);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,6 +252,16 @@ export default function MeetingProDashboard() {
       setFile(selectedFile);
       startRealProcessing(selectedFile);
     }
+  };
+
+  const downloadLogs = () => {
+    const blob = new Blob([workerLogs.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `meeting-ai-diag-${Date.now()}.log`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const getMascotSpeech = () => {
@@ -255,7 +278,7 @@ export default function MeetingProDashboard() {
   const CLAY_BUTTON = "rounded-full font-black tracking-widest uppercase transition-all duration-300 hover:scale-[1.1] active:scale-95 shadow-[0_0_30px_rgba(217,70,239,0.4)] border-2 border-slate-700 hover:border-fuchsia-400";
 
   return (
-    <div className={`w-full min-h-screen bg-[#04060b] bg-[url('/bg-cosmic.png')] bg-cover bg-center bg-fixed text-slate-200 font-sans pt-12 pb-24 px-6 relative overflow-hidden`}>
+    <div className={`w-full min-h-screen bg-[#04060b] bg-[url('/bg-cosmic.png')] bg-cover bg-center bg-fixed text-slate-200 font-sans pt-12 pb-48 px-6 relative overflow-hidden`}>
       
       {/* Dynamic Background */}
       <div className="fixed inset-0 pointer-events-none opacity-40 mix-blend-color-dodge -z-10 transition-colors" style={{ backgroundColor: `hsl(${(mousePos.x + 400) / 5}, 70%, 50%)` }} />
@@ -303,7 +326,9 @@ export default function MeetingProDashboard() {
         {status === 'idle' && (
           <div onClick={() => fileInputRef.current?.click()} onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop} className={`${TACTILE_BOX} p-20 md:p-32 border-4 text-center cursor-pointer transition-all ${isDragging ? 'scale-105 border-fuchsia-400' : 'border-fuchsia-500/30'}`}>
             <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} accept="video/*,audio/*" />
-            <img src="/jojo-icon.png" className="w-48 h-48 mx-auto mb-12 animate-bounce" />
+            <div className="w-48 h-48 mx-auto mb-12 animate-bounce bg-white rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.3)]">
+               <Zap className="w-24 h-24 text-fuchsia-600 fill-fuchsia-600" />
+            </div>
             <h3 className="text-4xl md:text-6xl font-black text-white mb-8">stand activation.</h3>
             <p className="text-slate-400 font-bold mb-12 tracking-widest">WASM-based local processing (up to 20GB). Pure Privacy.</p>
             <div className="inline-flex items-center gap-6 bg-white text-black px-12 py-6 rounded-full text-lg font-black hover:bg-lime-400 transition-all"><Flame className="w-8 h-8" /> Start Analysis</div>
@@ -412,6 +437,36 @@ export default function MeetingProDashboard() {
         )}
       </main>
 
+      {/* Neural Debug Console (Fixed Bottom) */}
+      <div className={`fixed bottom-0 left-0 right-0 z-[100] transition-all duration-500 ${isConsoleOpen ? 'h-64' : 'h-12'} bg-black/90 backdrop-blur-3xl border-t-2 border-fuchsia-500/30 flex flex-col shadow-[0_-20px_100px_rgba(217,70,239,0.2)]`}>
+          <div className="flex items-center justify-between px-6 py-2 bg-fuchsia-900/20 border-b border-white/5 cursor-pointer" onClick={() => setIsConsoleOpen(!isConsoleOpen)}>
+            <div className="flex items-center gap-3 text-fuchsia-400 font-black text-xs uppercase tracking-[0.4em]">
+              <Terminal className="w-4 h-4" /> Neural Diagnostics Console {workerLogs.length > 0 && <span className="text-white ml-2 bg-fuchsia-600 px-2 rounded-full text-[10px]">{workerLogs.length}</span>}
+            </div>
+            <div className="flex items-center gap-4">
+              {workerLogs.length > 0 && (
+                <button onClick={(e) => { e.stopPropagation(); downloadLogs(); }} className="text-white hover:text-fuchsia-400 transition-colors">
+                  <FileDown className="w-4 h-4" />
+                </button>
+              )}
+              {isConsoleOpen ? <ChevronDown className="w-5 h-5 text-white" /> : <ChevronUp className="w-5 h-5 text-white" />}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 font-mono text-[10px] md:text-sm text-lime-400 space-y-1 selection:bg-lime-400 selection:text-black scroll-smooth custom-scrollbar">
+             {workerLogs.length === 0 ? (
+                <div className="text-slate-600 italic">No neural telemetry detected. Waiting for ignition...</div>
+             ) : (
+                workerLogs.map((log, i) => (
+                  <div key={i} className="flex gap-4 border-l-2 border-lime-400/20 pl-4 hover:bg-white/5 transition-colors">
+                    <span className="opacity-40 shrink-0">{log.split(' ')[0]}</span>
+                    <span>{log.split(' ').slice(1).join(' ')}</span>
+                  </div>
+                ))
+             )}
+             <div ref={consoleEndRef} />
+          </div>
+      </div>
+
       {/* Floating Mascot */}
       <div className="fixed top-0 left-0 pointer-events-none z-50 transition-all duration-700 ease-out flex flex-col items-center" style={{ transform: `translate(${mascotPos.x + 30}px, ${mascotPos.y - 20}px) rotate(${targetTilt}deg)` }}>
         <img src="/mascot.png" className="w-32 h-32 animate-bounce" />
@@ -422,7 +477,7 @@ export default function MeetingProDashboard() {
 
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #06b6d4; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d946ef; border-radius: 10px; }
         @keyframes scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
       `}} />
     </div>
