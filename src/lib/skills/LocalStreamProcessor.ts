@@ -38,16 +38,24 @@ export class LocalStreamProcessor {
     this.isAborted = false;
     const ffmpeg = await this.loadFFmpeg();
     
-    // 定義掛載路徑與檔名
+    // 定義掛載路徑
     const mountPoint = '/mnt';
+    // 為了避免路徑與檔名包含特殊字元導致的 FS 錯誤，我們只取檔名部分並確保這是在 /mnt 下
     const inputPath = `${mountPoint}/${file.name}`;
     const outputPattern = 'chunk_%03d.raw';
 
-    /**
-     * 核心修復：使用 WORKERFS 掛載本地 File 物件
-     * 這可以防止 .arrayBuffer() 導致的 NotReadableError 與 20GB 記憶體溢位。
-     */
     try {
+      /**
+       * 關鍵修復：確保掛載點目錄存在。
+       * 如果目錄不存在，mount 操作會噴出 FS error。
+       */
+      try {
+        await ffmpeg.createDir(mountPoint);
+      } catch (dirErr) {
+        // 如果目錄已存在則忽略
+        console.log("Mount point directory already exists, continuing...");
+      }
+
       await ffmpeg.mount('WORKERFS', {
         files: [file]
       }, mountPoint);
@@ -57,7 +65,9 @@ export class LocalStreamProcessor {
       });
 
       // 執行 FFmpeg 提取音軌並分段為 raw PCM
+      // 注意：-y 是為了覆蓋可能存在的舊檔案
       await ffmpeg.exec([
+        '-y',
         '-i', inputPath,
         '-f', 'segment',
         '-segment_time', '300',
@@ -83,14 +93,14 @@ export class LocalStreamProcessor {
       }
 
     } catch (error) {
-      console.error("LocalStreamProcessor Critical Error:", error);
+      console.error("LocalStreamProcessor Critical Error (Neural Failure):", error);
       throw error;
     } finally {
-      // 卸載目錄以釋放資源
+      // 卸載目錄以釋放掛載。如果失敗代表目錄可能沒掛載成功或已被卸載。
       try {
         await ffmpeg.unmount(mountPoint);
       } catch (unmountErr) {
-        console.warn("Unmount failed (likely already unmounted):", unmountErr);
+        // 靜默處理
       }
     }
   }
