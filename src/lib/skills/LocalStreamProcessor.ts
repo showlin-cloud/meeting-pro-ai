@@ -1,6 +1,9 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
 
+// @ts-ignore
+type FFFSType = any;
+
 /**
  * Skill: LocalStreamProcessor (本地流處理器)
  * 
@@ -56,7 +59,7 @@ export class LocalStreamProcessor {
         console.log("Mount point directory already exists, continuing...");
       }
 
-      await ffmpeg.mount('WORKERFS', {
+      await ffmpeg.mount('WORKERFS' as any, {
         files: [file]
       }, mountPoint);
 

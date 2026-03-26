@@ -4,7 +4,7 @@ import React, { useState, useRef, DragEvent, useEffect } from 'react';
 import FigmaContextAwareConsultant, { FigmaIntentParameters } from '@/components/FigmaContextAwareConsultant';
 import MindMapPreview from '@/components/MindMapPreview';
 import { 
-  FileDown, RefreshCw, CheckCircle2, AudioWaveform, Zap, Flame, Stars, FileAudio, Subtitles, HelpCircle, Network, StopCircle, Loader2
+  FileDown, RefreshCw, CheckCircle2, AudioWaveform, Zap, Flame, Stars, FileAudio, Subtitles, HelpCircle, Network, StopCircle, Loader2, Clock
 } from 'lucide-react';
 
 // Import Real Skills
@@ -29,6 +29,10 @@ export default function MeetingProDashboard() {
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  
+  // ETA States
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [eta, setEta] = useState<number | null>(null);
   
   // Y2K/JoJo UI States
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -108,14 +112,6 @@ export default function MeetingProDashboard() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      startRealProcessing(selectedFile);
-    }
-  };
-
   const startRealProcessing = async (targetFile: File) => {
     setCurrentQuote(jojoUploadQuotes[Math.floor(Math.random() * jojoUploadQuotes.length)]);
     setShowJojo(true);
@@ -125,30 +121,43 @@ export default function MeetingProDashboard() {
     setChunks([]);
     setTranscript('');
     setProgress(0);
+    setEta(null);
+    const startT = Date.now();
+    setStartTime(startT);
     setStatusText('啟動 LocalStreamProcessor... FFmpeg 正在壓制 PCM...');
 
     try {
       await streamProcessor.current.processStream(
         targetFile,
         (pcmData, index) => {
-          // PROGRESSIVE EXPERIENCE: Immediately send each 5-min chunk
           setStatus('transcribing');
           setStatusText(`神經網絡發動！轉錄中：第 ${index + 1} 片段 (${(index*5)}-${(index+1)*5}min)`);
           
-          // Add a placeholder chunk in the table
-          setChunks(prev => [...prev, { index, text: '', timeRange: `${index * 5}:00 - ${(index + 1) * 5}:00` }]);
+          setChunks(prev => {
+            const updated = [...prev];
+            updated[index] = { index, text: '', timeRange: `${index * 5}:00 - ${(index + 1) * 5}:00` };
+            return updated;
+          });
           
           transcriber.current?.processChunk(pcmData, index);
         },
         (p) => {
           setProgress(p);
           if (p < 100) setStatusText(`FFmpeg 切片進度: ${p}%`);
+          
+          // Calculate ETA for Extraction Phase
+          if (p > 5) {
+            const elapsed = (Date.now() - startT) / 1000;
+            const remaining = (elapsed / (p / 100)) - elapsed;
+            setEta(Math.round(remaining));
+          }
         }
       );
 
-      // In a real app, we'd wait for all workers to return. 
-      // For this workflow, we finalize when user clicks or after a buffer.
       setStatusText('音訊提取完畢。等待全片轉錄完成或手動截斷...');
+      // After extraction, ETA might reset or change for transcription
+      // For simplicity, we clear ETA as transcription timing is variable
+      setEta(null);
 
     } catch (err) {
       console.error(err);
@@ -161,6 +170,7 @@ export default function MeetingProDashboard() {
     setTranscript(fullText || "轉錄結果為空");
     setStatus('consulting');
     setStatusText('轉錄完結。強制暫停：請檢閱文稿並設定意圖。');
+    setEta(null);
   };
 
   const handleAbortAndSummarize = () => {
@@ -185,11 +195,27 @@ export default function MeetingProDashboard() {
     }
   };
 
+  const formatETA = (seconds: number | null) => {
+    if (seconds === null || seconds < 0) return null;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
   const resetState = () => {
     setStatus('idle');
     setFile(null);
     setChunks([]);
     setProgress(0);
+    setEta(null);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
+      startRealProcessing(selectedFile);
+    }
   };
 
   const getMascotSpeech = () => {
@@ -237,10 +263,16 @@ export default function MeetingProDashboard() {
         )}
 
         {status !== 'idle' && (
-          <div className="bg-black/95 text-lime-400 p-8 rounded-[2.5rem] shadow-inner border-2 border-white/5 text-center relative w-full overflow-hidden">
-            <span className="font-mono text-xl uppercase tracking-widest font-black">&gt; {statusText}</span>
+          <div className="bg-black/95 text-lime-400 p-8 rounded-[2.5rem] shadow-inner border-2 border-white/5 text-center relative w-full overflow-hidden min-h-[140px] flex flex-col items-center justify-center gap-2">
+            <span className="font-mono text-xl uppercase tracking-widest font-black z-10">&gt; {statusText}</span>
+            {eta !== null && (
+              <div className="flex items-center gap-4 bg-fuchsia-900/40 px-6 py-2 rounded-full border border-fuchsia-500/30 text-fuchsia-100 font-black tracking-widest animate-in fade-in slide-in-from-top-2 z-10">
+                <Clock className="w-5 h-5 text-fuchsia-400" />
+                <span>預計剩餘時間: <span className="text-2xl text-white underline decoration-fuchsia-500 decoration-4">{formatETA(eta)}</span></span>
+              </div>
+            )}
             {(status === 'extracting' || status === 'transcribing') && (
-              <button onClick={handleAbortAndSummarize} className="mt-4 bg-rose-600 hover:bg-rose-500 text-white px-8 py-3 rounded-full text-xs font-black flex items-center gap-2 mx-auto shadow-xl"><StopCircle className="w-4 h-4" /> 提早結束並摘要</button>
+              <button onClick={handleAbortAndSummarize} className="mt-4 bg-rose-600 hover:bg-rose-500 text-white px-8 py-3 rounded-full text-xs font-black flex items-center gap-2 shadow-xl z-20"><StopCircle className="w-4 h-4" /> 提早結束並摘要</button>
             )}
           </div>
         )}
@@ -259,18 +291,33 @@ export default function MeetingProDashboard() {
           <div className="space-y-8 animate-in fade-in">
             {status === 'extracting' && (
               <div className={`${TACTILE_BOX} p-10 flex flex-col gap-6`}>
-                <div className="flex justify-between items-center px-4"><span className="text-amber-400 font-black">FFmpeg Power Level</span><span className="text-white font-black text-3xl">{progress}%</span></div>
-                <div className="h-4 w-full bg-black/50 rounded-full overflow-hidden"><div className="h-full bg-amber-500" style={{ width: `${progress}%` }} /></div>
+                <div className="flex justify-between items-center px-4">
+                   <div className="flex flex-col">
+                     <span className="text-amber-400 font-black uppercase text-xs tracking-[0.3em]">Power level in extraction</span>
+                     <span className="text-white font-black text-4xl">FFmpeg {progress}%</span>
+                   </div>
+                   {eta !== null && (
+                      <div className="text-right flex flex-col">
+                        <span className="text-slate-500 text-[10px] uppercase font-black tracking-widest">Time to slice end</span>
+                        <span className="text-fuchsia-400 font-mono text-3xl font-black tracking-tighter">-{formatETA(eta)}</span>
+                      </div>
+                   )}
+                </div>
+                <div className="h-6 w-full bg-black/50 rounded-full overflow-hidden border-2 border-white/5"><div className="h-full bg-gradient-to-r from-amber-500 via-rose-500 to-fuchsia-500 shadow-[0_0_20px_rgba(245,158,11,0.5)]" style={{ width: `${progress}%` }} /></div>
               </div>
             )}
             <div className={`${TACTILE_BOX} overflow-hidden`}>
-              <div className="bg-cyan-900/40 px-8 py-4 flex justify-between items-center"><h3 className="font-black text-cyan-200">漸進式轉錄流 (Streaming AI)</h3><Loader2 className="w-6 h-6 text-cyan-400 animate-spin" /></div>
+              <div className="bg-cyan-900/40 px-8 py-4 flex justify-between items-center"><h3 className="font-black text-cyan-200 uppercase tracking-widest">漸進式轉錄流 (Streaming AI)</h3><Loader2 className="w-6 h-6 text-cyan-400 animate-spin" /></div>
               <table className="w-full text-left text-sm font-mono">
                 <thead className="bg-black/60 text-slate-500 uppercase"><tr><th className="px-8 py-4"># Slice</th><th className="px-8 py-4">Range</th><th className="px-8 py-4">Text</th></tr></thead>
                 <tbody className="divide-y divide-white/5">
-                  {chunks.map((c, i) => (
-                    <tr key={i} className="hover:bg-cyan-500/5"><td className="px-8 py-4 text-cyan-400">#0{c.index + 1}</td><td className="px-8 py-4 text-slate-500">{c.timeRange}</td><td className="px-8 py-4 text-white">{c.text || "推理中..."}</td></tr>
-                  ))}
+                  {chunks.length === 0 ? (
+                    <tr><td colSpan={3} className="px-8 py-12 text-center text-slate-700 font-black animate-pulse uppercase tracking-[0.5em]">Waiting for first wave...</td></tr>
+                  ) : (
+                    chunks.map((c, i) => (
+                      <tr key={i} className="hover:bg-cyan-500/5"><td className="px-8 py-4 text-cyan-400 font-black">#0{c.index + 1}</td><td className="px-8 py-4 text-slate-500">{c.timeRange}</td><td className="px-8 py-4 text-white">{c.text || <div className="flex items-center gap-2 text-cyan-400/60"><Loader2 className="w-3 h-3 animate-spin" /> 模型推論中...</div>}</td></tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
