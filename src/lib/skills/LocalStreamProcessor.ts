@@ -5,7 +5,7 @@ import { toBlobURL } from '@ffmpeg/util';
  * Skill: LocalStreamProcessor (本地流處理器)
  * 
  * 使用 ffmpeg.wasm 實作音軌提取與分片。
- * 輸出 raw pcm (f32le, 16kHz, mono) 供 Transformers.js 直接使用。
+ * 採用 WORKERFS 掛載技術，直接映射本地 File 物件，支援最高 20GB 且不占用記憶體。
  */
 export class LocalStreamProcessor {
   private ffmpeg: FFmpeg | null = null;
@@ -15,7 +15,6 @@ export class LocalStreamProcessor {
     if (this.ffmpeg) return this.ffmpeg;
 
     const ffmpeg = new FFmpeg();
-    // 使用穩定版本
     const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
     await ffmpeg.load({
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
@@ -39,51 +38,60 @@ export class LocalStreamProcessor {
     this.isAborted = false;
     const ffmpeg = await this.loadFFmpeg();
     
-    const inputFileName = 'input_media';
+    // 定義掛載路徑與檔名
+    const mountPoint = '/mnt';
+    const inputPath = `${mountPoint}/${file.name}`;
     const outputPattern = 'chunk_%03d.raw';
 
-    // 寫入檔案
-    const fileData = new Uint8Array(await file.arrayBuffer());
-    await ffmpeg.writeFile(inputFileName, fileData);
-
-    ffmpeg.on('progress', ({ progress }) => {
-      onProgress(Math.round(progress * 100));
-    });
-
     /**
-     * 輸出格式：
-     * -f segment: 分段
-     * -segment_time 300: 5 分鐘
-     * -ac 1: 單聲道
-     * -ar 16000: 16kHz
-     * -f f32le: raw float 32-bit little endian (Whisper 直接吃此格式)
-     * -acodec pcm_f32le
+     * 核心修復：使用 WORKERFS 掛載本地 File 物件
+     * 這可以防止 .arrayBuffer() 導致的 NotReadableError 與 20GB 記憶體溢位。
      */
-    await ffmpeg.exec([
-      '-i', inputFileName,
-      '-f', 'segment',
-      '-segment_time', '300',
-      '-ac', '1',
-      '-ar', '16000',
-      '-f', 'f32le',
-      '-acodec', 'pcm_f32le',
-      outputPattern
-    ]);
+    try {
+      await ffmpeg.mount('WORKERFS', {
+        files: [file]
+      }, mountPoint);
 
-    const files = await ffmpeg.listDir('.');
-    const chunks = files
-      .filter(f => f.name.startsWith('chunk_') && !f.isDir)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      ffmpeg.on('progress', ({ progress }) => {
+        onProgress(Math.round(progress * 100));
+      });
 
-    for (let i = 0; i < chunks.length; i++) {
-      if (this.isAborted) break;
-      const data = await ffmpeg.readFile(chunks[i].name);
-      // 將 Uint8Array 轉為 Float32Array
-      const f32 = new Float32Array((data as Uint8Array).buffer);
-      onChunk(f32, i);
-      await ffmpeg.deleteFile(chunks[i].name);
+      // 執行 FFmpeg 提取音軌並分段為 raw PCM
+      await ffmpeg.exec([
+        '-i', inputPath,
+        '-f', 'segment',
+        '-segment_time', '300',
+        '-ac', '1',
+        '-ar', '16000',
+        '-f', 'f32le',
+        '-acodec', 'pcm_f32le',
+        outputPattern
+      ]);
+
+      const files = await ffmpeg.listDir('.');
+      const chunks = files
+        .filter(f => f.name.startsWith('chunk_') && !f.isDir)
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (this.isAborted) break;
+        const data = await ffmpeg.readFile(chunks[i].name);
+        const f32 = new Float32Array((data as Uint8Array).buffer);
+        onChunk(f32, i);
+        // 清理暫存分片
+        await ffmpeg.deleteFile(chunks[i].name);
+      }
+
+    } catch (error) {
+      console.error("LocalStreamProcessor Critical Error:", error);
+      throw error;
+    } finally {
+      // 卸載目錄以釋放資源
+      try {
+        await ffmpeg.unmount(mountPoint);
+      } catch (unmountErr) {
+        console.warn("Unmount failed (likely already unmounted):", unmountErr);
+      }
     }
-
-    await ffmpeg.deleteFile(inputFileName);
   }
 }
