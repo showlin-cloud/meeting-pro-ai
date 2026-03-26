@@ -3,14 +3,16 @@
 import React, { useState, useRef, DragEvent, useEffect } from 'react';
 import FigmaContextAwareConsultant, { FigmaIntentParameters } from '@/components/FigmaContextAwareConsultant';
 import MindMapPreview from '@/components/MindMapPreview';
+import ExecutionConsole from '@/components/ExecutionConsole';
 import { 
-  FileDown, RefreshCw, CheckCircle2, AudioWaveform, Zap, Flame, Stars, FileAudio, Subtitles, HelpCircle, Network, StopCircle, Loader2, Clock, BarChart3, Terminal, ChevronDown, ChevronUp
+  FileDown, RefreshCw, CheckCircle2, Zap, Flame, Stars, FileAudio, Subtitles, HelpCircle, Network, StopCircle, Loader2, Clock, BarChart3, Activity
 } from 'lucide-react';
 
 // Import Real Skills
 import { LocalStreamProcessor } from '@/lib/skills/LocalStreamProcessor';
 import { WebWorkerTranscriber } from '@/lib/skills/WebWorkerTranscriber';
 import { DynamicClaudeSummarizer } from '@/lib/skills/DynamicClaudeSummarizer';
+import { DiagnosticsSkill, SystemStatus } from '@/lib/skills/DiagnosticsSkill';
 
 interface TranscriptionChunk {
   index: number;
@@ -36,9 +38,9 @@ export default function MeetingProDashboard() {
   const [eta, setEta] = useState<number | null>(null);
   const [completedChunksCount, setCompletedChunksCount] = useState(0);
   
-  // Debug Logging States
+  // Diagnostics & Debug Logging States
   const [workerLogs, setWorkerLogs] = useState<string[]>([]);
-  const [isConsoleOpen, setIsConsoleOpen] = useState(true);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   
   // Y2K/JoJo UI States
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -50,11 +52,11 @@ export default function MeetingProDashboard() {
   
   const lastMousePosRef = useRef({ x: 0, y: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const consoleEndRef = useRef<HTMLDivElement>(null);
 
   // Skill Instances
   const streamProcessor = useRef(new LocalStreamProcessor());
   const transcriber = useRef<WebWorkerTranscriber | null>(null);
+  const diagnosticsScale = useRef(new DiagnosticsSkill());
 
   const jojoUploadQuotes = [
      "又是開會？這種無馱無馱無馱的會議，交給我的替身！",
@@ -72,15 +74,25 @@ export default function MeetingProDashboard() {
     { id: 'summarizing', label: '4. 智能摘要', icon: Network },
   ];
 
+  const addLog = (msg: string) => {
+    setWorkerLogs(prev => [...prev, `${new Date().toLocaleTimeString()} ${msg}`].slice(-150));
+  };
+
   useEffect(() => {
     setMascotPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
     
+    // Initial System Check
+    diagnosticsScale.current.checkAISystem().then(res => {
+      setSystemStatus(res);
+      addLog(`[Diagnostics] System Check: Local Model: ${res.localModel}`);
+      addLog(`[Diagnostics] System Check: Cloud Model: ${res.cloudModel}`);
+      addLog(`[Diagnostics] System Check: API Status: ${res.apiStatus.toUpperCase()}`);
+      if (res.memoryUsage) addLog(`[Diagnostics] System Check: Memory: ${res.memoryUsage}`);
+    });
+
     // Initialize transcriber
     transcriber.current = new WebWorkerTranscriber();
-    
-    transcriber.current.onLog((msg) => {
-      setWorkerLogs(prev => [...prev, `${new Date().toLocaleTimeString()} ${msg}`].slice(-100));
-    });
+    transcriber.current.onLog((msg) => addLog(msg));
 
     transcriber.current.onResult((result) => {
       const { index, data } = result;
@@ -130,12 +142,6 @@ export default function MeetingProDashboard() {
     };
   }, [chunks.length, transcriptionStartTime]);
 
-  useEffect(() => {
-    if (consoleEndRef.current) {
-      consoleEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [workerLogs]);
-
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
@@ -158,7 +164,8 @@ export default function MeetingProDashboard() {
     setEta(null);
     setCompletedChunksCount(0);
     setTranscriptionStartTime(null);
-    setWorkerLogs([`${new Date().toLocaleTimeString()} [System] 初始化引擎...`]);
+    addLog(`[System] Ignition! Processing ${targetFile.name} (${(targetFile.size / 1024 / 1024).toFixed(2)} MB)`);
+    
     const startT = Date.now();
     setStartTime(startT);
     setStatusText('啟動 LocalStreamProcessor... FFmpeg 正在壓制 PCM...');
@@ -178,6 +185,7 @@ export default function MeetingProDashboard() {
             return updated;
           });
           
+          addLog(`[FFmpeg] Slice #${index} extracted. Passing to local AI...`);
           transcriber.current?.processChunk(pcmData, index);
         },
         (p) => {
@@ -186,16 +194,18 @@ export default function MeetingProDashboard() {
              setStatusText(`FFmpeg 切片進度: ${p}%`);
              const elapsed = (Date.now() - startT) / 1000;
              if (p > 5) setEta(Math.round((elapsed / (p / 100)) - elapsed));
+             if (p % 10 === 0) addLog(`[FFmpeg] Extraction progress: ${p}%`);
           } else {
              setStatusText('音訊提取完畢。AI 正在進行逐字稿超速推理...');
+             addLog(`[FFmpeg] Extraction complete! All 5-min slices generated.`);
           }
         }
       );
 
     } catch (err) {
       console.error(err);
-      setStatusText('系統發生錯誤！請查看下方神經調試日誌。');
-      setWorkerLogs(prev => [...prev, `${new Date().toLocaleTimeString()} [Critical] ${err}`]);
+      setStatusText('系統發生錯誤！請查看下方執觀察窗。');
+      addLog(`[Critical] Extraction Failed: ${err}`);
     }
   };
 
@@ -205,16 +215,19 @@ export default function MeetingProDashboard() {
     setStatus('consulting');
     setStatusText('轉錄完結。強制暫停：請檢閱文稿並設定意圖。');
     setEta(null);
+    addLog('[System] Transcription workflow finalized. Waiting for user intent.');
   };
 
   const handleAbortAndSummarize = () => {
     streamProcessor.current.abort();
+    addLog('[User] Abort signal received. Summarizing partially completed work.');
     finalizeTranscription();
   };
 
   const handleConsultComplete = async (intent: FigmaIntentParameters) => {
     setStatus('summarizing');
     setStatusText('啟動 DynamicClaudeSummarizer... 分析 80/20 結構中...');
+    addLog('[API] Calling DynamicClaudeSummarizer... Sending transcript to cloud brain.');
     
     try {
       const summarizer = new DynamicClaudeSummarizer();
@@ -223,9 +236,11 @@ export default function MeetingProDashboard() {
       setMindmapCode(result.mindMapSyntax);
       setStatus('done');
       setStatusText('分析完成。');
+      addLog('[API] Summary & Mindmap generated successfully.');
     } catch (err) {
       console.error(err);
       setStatusText('摘要生成失敗。');
+      addLog(`[Critical] API Summary Failed: ${err}`);
     }
   };
 
@@ -244,6 +259,7 @@ export default function MeetingProDashboard() {
     setEta(null);
     setCompletedChunksCount(0);
     setWorkerLogs([]);
+    addLog('[System] Workspace reset. Ready for next session.');
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -291,6 +307,25 @@ export default function MeetingProDashboard() {
         <p className="text-cyan-300 font-black tracking-[0.4em] text-sm md:text-xl uppercase mt-8 bg-black/60 px-12 py-4 rounded-full border-4 border-cyan-400/50 shadow-2xl backdrop-blur-xl animate-pulse">
           progressive neural flow ⚡ wasm + whisper
         </p>
+
+        {systemStatus && (
+           <div className="mt-6 flex flex-wrap justify-center gap-4 animate-in fade-in slide-in-from-top-4 duration-1000">
+              <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
+                <div className={`w-2 h-2 rounded-full ${systemStatus.workerHealthy ? 'bg-lime-500 shadow-[0_0_10px_rgba(132,204,22,0.8)]' : 'bg-rose-500'}`} />
+                {systemStatus.localModel}
+              </div>
+              <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
+                <div className={`w-2 h-2 rounded-full ${systemStatus.apiStatus === 'ok' ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)]' : 'bg-rose-500'}`} />
+                {systemStatus.cloudModel}
+              </div>
+              {systemStatus.memoryUsage && (
+                <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
+                  <Activity className="w-3 h-3 text-fuchsia-400" />
+                  {systemStatus.memoryUsage}
+                </div>
+              )}
+           </div>
+        )}
       </header>
 
       <main className="max-w-4xl mx-auto relative z-10 flex flex-col gap-8">
@@ -437,35 +472,12 @@ export default function MeetingProDashboard() {
         )}
       </main>
 
-      {/* Neural Debug Console (Fixed Bottom) */}
-      <div className={`fixed bottom-0 left-0 right-0 z-[100] transition-all duration-500 ${isConsoleOpen ? 'h-64' : 'h-12'} bg-black/90 backdrop-blur-3xl border-t-2 border-fuchsia-500/30 flex flex-col shadow-[0_-20px_100px_rgba(217,70,239,0.2)]`}>
-          <div className="flex items-center justify-between px-6 py-2 bg-fuchsia-900/20 border-b border-white/5 cursor-pointer" onClick={() => setIsConsoleOpen(!isConsoleOpen)}>
-            <div className="flex items-center gap-3 text-fuchsia-400 font-black text-xs uppercase tracking-[0.4em]">
-              <Terminal className="w-4 h-4" /> Neural Diagnostics Console {workerLogs.length > 0 && <span className="text-white ml-2 bg-fuchsia-600 px-2 rounded-full text-[10px]">{workerLogs.length}</span>}
-            </div>
-            <div className="flex items-center gap-4">
-              {workerLogs.length > 0 && (
-                <button onClick={(e) => { e.stopPropagation(); downloadLogs(); }} className="text-white hover:text-fuchsia-400 transition-colors">
-                  <FileDown className="w-4 h-4" />
-                </button>
-              )}
-              {isConsoleOpen ? <ChevronDown className="w-5 h-5 text-white" /> : <ChevronUp className="w-5 h-5 text-white" />}
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 font-mono text-[10px] md:text-sm text-lime-400 space-y-1 selection:bg-lime-400 selection:text-black scroll-smooth custom-scrollbar">
-             {workerLogs.length === 0 ? (
-                <div className="text-slate-600 italic">No neural telemetry detected. Waiting for ignition...</div>
-             ) : (
-                workerLogs.map((log, i) => (
-                  <div key={i} className="flex gap-4 border-l-2 border-lime-400/20 pl-4 hover:bg-white/5 transition-colors">
-                    <span className="opacity-40 shrink-0">{log.split(' ')[0]}</span>
-                    <span>{log.split(' ').slice(1).join(' ')}</span>
-                  </div>
-                ))
-             )}
-             <div ref={consoleEndRef} />
-          </div>
-      </div>
+      {/* Execution Console (Componentized with Stall Detection) */}
+      <ExecutionConsole 
+        logs={workerLogs} 
+        isProcessing={status === 'extracting' || status === 'transcribing' || status === 'summarizing'} 
+        onDownloadLogs={downloadLogs} 
+      />
 
       {/* Floating Mascot */}
       <div className="fixed top-0 left-0 pointer-events-none z-50 transition-all duration-700 ease-out flex flex-col items-center" style={{ transform: `translate(${mascotPos.x + 30}px, ${mascotPos.y - 20}px) rotate(${targetTilt}deg)` }}>

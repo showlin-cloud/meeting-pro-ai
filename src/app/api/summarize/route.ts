@@ -1,56 +1,87 @@
-import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { Anthropic } from '@anthropic-ai/sdk';
+import { NextResponse } from 'next/server';
 
-export async function POST(req: NextRequest) {
+/**
+ * API Route: /api/summarize
+ * 
+ * POST: 接收逐字稿並生成 80/20 摘要與 Mermaid 心智圖。
+ * GET: 系統診斷 (Ping)，確認 API KEY 是否有效。
+ */
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY || '',
+});
+
+export async function GET() {
   try {
-    const { transcript, figmaContext } = await req.json();
-
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY || '',
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ status: 'error', message: 'Missing ANTHROPIC_API_KEY' }, { status: 500 });
+    }
+    
+    // 發送一個極簡請求測試 Key
+    await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20240620',
+      max_tokens: 1,
+      messages: [{ role: 'user', content: 'ping' }],
     });
+    
+    return NextResponse.json({ 
+      status: 'ok', 
+      model: 'Claude-3.5-Sonnet (Cloud)',
+      connectivity: 'stable'
+    });
+  } catch (err: any) {
+    console.error('API Key Verification Failed:', err);
+    return NextResponse.json({ 
+      status: 'error', 
+      message: err.message || 'API key invalid or connectivity issue' 
+    }, { status: 401 });
+  }
+}
 
-    const prompt = `
-你是一位專業的會議分析師與設計顧問。請針對以下「逐字稿」內容，並結合「Figma 提供之原始設計假設」，產出 80/20 比例的精華摘要。
+export async function POST(req: Request) {
+  try {
+    const { transcript } = await req.json();
 
-### 80% 通用結構：
-1. 會議時間與主題。
-2. 核心決議。
-3. 待辦清單 (Action Items)。
+    if (!transcript) {
+      return NextResponse.json({ error: 'No transcript provided' }, { status: 400 });
+    }
 
-### 20% 特定情境 (Figma 回饋對齊)：
-- 針對逐字稿中提及之 Figma Comment (如 #129, #132)，比對其「原始設計假設」與「會議後共識」。
-
-### 心智圖附加：
-- 在摘要末尾，產出一份基於會議內容的心智圖文字（優先使用 Mermaid 語法）。
-
----
-**Figma 原始設計假設與上下文：**
-${figmaContext || '無特定上下文'}
-
----
-**逐字稿內容：**
-${transcript}
-`.trim();
-
-    const message = await anthropic.messages.create({
-      model: 'claude-3-sonnet-20240229',
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20240620',
       max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
+      system: `你是一位資深的會議分析官。請遵循以下 Rule:
+1. 80% 通用結構：包含會議時間、核心決議、待辦清單 (Action Items)。
+2. 20% 定義結構：根據會議內容（如 Wireframe、Kick-off）動態調整重點。
+3. 末尾產出 Mermaid 語法的心智圖。
+請使用繁體中文回答。`,
+      messages: [
+        {
+          role: 'user',
+          content: `請分析以下會議逐字稿並完成摘要：\n\n${transcript}`,
+        },
+      ],
     });
 
-    const responseContent = message.content[0].type === 'text' ? message.content[0].text : '';
+    // 解析 Claude 的回答
+    const content = response.content[0];
+    if (content.type !== 'text') {
+      throw new Error('Unexpected content type from Claude');
+    }
 
-    // 簡單解析 Mermaid 語法
-    const mermaidMatch = responseContent.match(/```mermaid([\s\S]*?)```/);
-    const mermaidSyntax = mermaidMatch ? mermaidMatch[1].trim() : 'graph TD\n  A[會議開始] --> B[無意圖解析]';
+    const text = content.text;
+    
+    // 簡單提取 Mermaid
+    const mermaidMatch = text.match(/```mermaid([\s\S]*?)```/);
+    const mindMapSyntax = mermaidMatch ? mermaidMatch[1].trim() : '';
+    const structuredNotes = text.replace(/```mermaid[\s\S]*?```/, '').trim();
 
     return NextResponse.json({
-      structuredNotes: responseContent.replace(/```mermaid[\s\S]*?```/, '').trim(),
-      mindMapSyntax: mermaidSyntax,
+      structuredNotes,
+      mindMapSyntax,
     });
-
-  } catch (error) {
-    console.error('Summarize API Error:', error);
-    return NextResponse.json({ error: 'Failed to summarize transcript' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Claude API Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
