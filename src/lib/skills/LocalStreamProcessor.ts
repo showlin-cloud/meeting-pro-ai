@@ -1,40 +1,89 @@
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { toBlobURL } from '@ffmpeg/util';
+
 /**
  * Skill: LocalStreamProcessor (本地流處理器)
  * 
- * 定義：利用 ffmpeg.wasm 實作非同步音軌提取。
- * 核心指令：針對本地大型影音檔（最高 20GB），嚴禁一次性讀入記憶體。必須使用 File.slice() 進行流式讀取，
- * 將音訊壓製為 16kHz Mono MP3 片段，每 5 分鐘產生一個 Buffer 區塊傳送給轉錄引擎。
+ * 使用 ffmpeg.wasm 實作音軌提取與分片。
+ * 輸出 raw pcm (f32le, 16kHz, mono) 供 Transformers.js 直接使用。
  */
-
 export class LocalStreamProcessor {
+  private ffmpeg: FFmpeg | null = null;
   private isAborted: boolean = false;
 
-  /**
-   * 中斷處理，觸發「提早結束並摘要」情境
-   */
+  private async loadFFmpeg(): Promise<FFmpeg> {
+    if (this.ffmpeg) return this.ffmpeg;
+
+    const ffmpeg = new FFmpeg();
+    // 使用穩定版本
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+    
+    this.ffmpeg = ffmpeg;
+    return ffmpeg;
+  }
+
   abort(): void {
     console.log("LocalStreamProcessor processing aborted by user.");
     this.isAborted = true;
-    // TODO: implement ffmpeg-specific abort mechanism if needed
   }
 
-  /**
-   * Process large video/audio files via streaming.
-   * Extracts audio, converts to 16kHz Mono MP3, and yields chunks of up to 5 minutes.
-   * @param file The large media file (up to 20GB)
-   * @param onChunk Callback to yield 5-minute MP3 buffers to the transcription engine
-   */
-  async processStream(file: File, onChunk: (buffer: ArrayBuffer, index: number) => void): Promise<void> {
+  async processStream(
+    file: File, 
+    onChunk: (pcmData: Float32Array, index: number) => void,
+    onProgress: (p: number) => void
+  ): Promise<void> {
     this.isAborted = false;
+    const ffmpeg = await this.loadFFmpeg();
     
-    // 核心步驟：
-    // 1. Initialize ffmpeg.wasm
-    // 2. Read file in chunks using File.slice() to avoid memory overflow
-    //   -> Loop through chunks. If `this.isAborted` becomes true, stop extracting immediately.
-    // 3. Process video to audio (16kHz Mono MP3 format)
-    // 4. Split audio down into 5-minute segments
-    // 5. Invoke onChunk for each 5-minute segment produced
-    console.log(`Starting LocalStreamProcessor for file: ${file.name}`);
-    throw new Error('LocalStreamProcessor processStream is not fully implemented yet');
+    const inputFileName = 'input_media';
+    const outputPattern = 'chunk_%03d.raw';
+
+    // 寫入檔案
+    const fileData = new Uint8Array(await file.arrayBuffer());
+    await ffmpeg.writeFile(inputFileName, fileData);
+
+    ffmpeg.on('progress', ({ progress }) => {
+      onProgress(Math.round(progress * 100));
+    });
+
+    /**
+     * 輸出格式：
+     * -f segment: 分段
+     * -segment_time 300: 5 分鐘
+     * -ac 1: 單聲道
+     * -ar 16000: 16kHz
+     * -f f32le: raw float 32-bit little endian (Whisper 直接吃此格式)
+     * -acodec pcm_f32le
+     */
+    await ffmpeg.exec([
+      '-i', inputFileName,
+      '-f', 'segment',
+      '-segment_time', '300',
+      '-ac', '1',
+      '-ar', '16000',
+      '-f', 'f32le',
+      '-acodec', 'pcm_f32le',
+      outputPattern
+    ]);
+
+    const files = await ffmpeg.listDir('.');
+    const chunks = files
+      .filter(f => f.name.startsWith('chunk_') && !f.isDir)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    for (let i = 0; i < chunks.length; i++) {
+      if (this.isAborted) break;
+      const data = await ffmpeg.readFile(chunks[i].name);
+      // 將 Uint8Array 轉為 Float32Array
+      const f32 = new Float32Array((data as Uint8Array).buffer);
+      onChunk(f32, i);
+      await ffmpeg.deleteFile(chunks[i].name);
+    }
+
+    await ffmpeg.deleteFile(inputFileName);
   }
 }
