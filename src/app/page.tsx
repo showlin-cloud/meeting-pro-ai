@@ -5,7 +5,7 @@ import FigmaContextAwareConsultant, { FigmaIntentParameters } from '@/components
 import MindMapPreview from '@/components/MindMapPreview';
 import ExecutionConsole from '@/components/ExecutionConsole';
 import { 
-  FileDown, RefreshCw, CheckCircle2, Zap, Flame, Stars, FileAudio, Subtitles, HelpCircle, Network, StopCircle, Loader2, Clock, BarChart3, Activity, Trash2, LayoutList
+  FileDown, RefreshCw, CheckCircle2, Zap, Flame, Stars, FileAudio, Subtitles, HelpCircle, Network, StopCircle, Loader2, Clock, BarChart3, Activity, Trash2, LayoutList, AlertTriangle
 } from 'lucide-react';
 
 // Import Real Skills
@@ -41,6 +41,7 @@ export default function MeetingProDashboard() {
   // Diagnostics & Debug Logging States
   const [workerLogs, setWorkerLogs] = useState<string[]>([]);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [showConfigAlert, setShowConfigAlert] = useState(false);
   
   // Y2K/JoJo UI States
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -79,20 +80,30 @@ export default function MeetingProDashboard() {
     setWorkerLogs(prev => [...prev, `${new Date().toLocaleTimeString()} ${msg}`].slice(-200));
   };
 
+  const runDiagnostics = async () => {
+    const res = await diagnosticsSkill.current.checkAISystem();
+    setSystemStatus(res);
+    addLog(`[Diagnostics] System Check: Local Model: ${res.localModel}`);
+    addLog(`[Diagnostics] System Check: Cloud Model: ${res.cloudModel}`);
+    addLog(`[Diagnostics] System Check: API Status: ${res.apiStatus.toUpperCase()}`);
+    
+    if (res.apiStatus === 'missing_key') {
+      addLog(`[Critical] 偵測到 ANTHROPIC_API_KEY 缺失，請檢查 .env.local`);
+      setShowConfigAlert(true);
+    } else if (res.apiStatus === 'ok') {
+      setShowConfigAlert(false);
+    }
+  };
+
   useEffect(() => {
     setMascotPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
     
     // Initial System Check
-    diagnosticsSkill.current.checkAISystem().then(res => {
-      setSystemStatus(res);
-      addLog(`[Diagnostics] System Check: Local Model: ${res.localModel}`);
-      addLog(`[Diagnostics] System Check: Cloud Model: ${res.cloudModel}`);
-      addLog(`[Diagnostics] System Check: API Status: ${res.apiStatus.toUpperCase()}`);
-    });
+    runDiagnostics();
 
     // Initialize transcriber
     transcriber.current = new WebWorkerTranscriber();
-    transcriber.current.onLog((msg) => addLog(msg));
+    transcriber.current.onLog((msg) => addLog(`[Worker] ${msg}`));
     transcriber.current.onError((err) => {
       addLog(`[Critical] Transcriber Error: ${err}`);
       setStatusText('神經網路超時或毀損！請點擊下方「清理緩存」重新開始。');
@@ -128,6 +139,9 @@ export default function MeetingProDashboard() {
       });
     });
 
+    // FFmpeg Logs Connection
+    streamProcessor.current.onLog((msg) => addLog(`[FFmpeg] ${msg}`));
+
     const handleMouseMove = (e: MouseEvent) => {
       const x = (e.clientX / window.innerWidth - 0.5) * 800;
       const y = (e.clientY / window.innerHeight - 0.5) * 800;
@@ -157,6 +171,14 @@ export default function MeetingProDashboard() {
   };
 
   const startRealProcessing = async (targetFile: File) => {
+    // Force another diagnostic check before starting
+    const diag = await diagnosticsSkill.current.checkAISystem();
+    if (diag.apiStatus === 'missing_key') {
+      alert('⚠️ 系統偵測到缺少的 ANTHROPIC_API_KEY！\n\n請在 .env.local 檔案中加入金鑰，方可執行排版與摘要功能。');
+      setShowConfigAlert(true);
+      return;
+    }
+
     setCurrentQuote(jojoUploadQuotes[Math.floor(Math.random() * jojoUploadQuotes.length)]);
     setShowJojo(true);
     setTimeout(() => setShowJojo(false), 3000);
@@ -178,7 +200,9 @@ export default function MeetingProDashboard() {
       await streamProcessor.current.processStream(
         targetFile,
         (pcmData, index) => {
-          if (index === 0) setTranscriptionStartTime(Date.now());
+          if (index === 0) {
+            setTranscriptionStartTime(Date.now());
+          }
           
           setStatus('transcribing');
           setStatusText(`神經網絡發動！轉錄中：第 ${index + 1} 片段 (${(index*5)}-${(index+1)*5}min)`);
@@ -199,6 +223,7 @@ export default function MeetingProDashboard() {
              if (p > 5) setEta(Math.round((elapsed / (p / 100)) - elapsed));
           } else {
              setStatusText('音訊提取完畢。AI 正在進行逐字稿超速推理...');
+             setEta(null);
           }
         }
       );
@@ -206,7 +231,8 @@ export default function MeetingProDashboard() {
     } catch (err) {
       console.error(err);
       setStatusText('系統發生錯誤！請查看下方執觀察窗。');
-      addLog(`[Critical] Extraction Failed: ${err}`);
+      addLog(`[Critical] Process Failure: ${err}`);
+      setStatus('idle');
     }
   };
 
@@ -337,26 +363,46 @@ export default function MeetingProDashboard() {
       <div className="fixed inset-0 pointer-events-none opacity-40 mix-blend-color-dodge -z-10 transition-colors" style={{ backgroundColor: `hsl(${(mousePos.x + 400) / 5}, 70%, 50%)` }} />
       
       <header className="max-w-4xl mx-auto mb-10 text-center relative z-10 flex flex-col items-center">
+        <div className="flex items-center gap-4 mb-4">
+           {systemStatus && (
+              <div key="status-badges" className="flex gap-4 animate-in fade-in slide-in-from-top-4 duration-1000">
+                <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
+                  <div className={`w-2 h-2 rounded-full ${systemStatus.workerHealthy ? 'bg-lime-500 shadow-[0_0_10px_rgba(132,204,22,0.8)]' : 'bg-rose-500'}`} />
+                  Neural {systemStatus.localModel}
+                </div>
+                <div className={`flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border ${systemStatus.apiStatus === 'missing_key' ? 'border-amber-500 animate-pulse' : 'border-white/5'} text-[10px] uppercase font-bold text-slate-400`}>
+                  <div className={`w-2 h-2 rounded-full ${systemStatus.apiStatus === 'ok' ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)]' : systemStatus.apiStatus === 'missing_key' ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                  Cloud {systemStatus.cloudModel} {systemStatus.apiStatus === 'missing_key' ? '(KEY MISSING)' : ''}
+                </div>
+              </div>
+           )}
+        </div>
+
         <h1 className="text-6xl md:text-8xl font-black lowercase tracking-tighter text-white flex flex-col md:flex-row items-center gap-6">
           <span className="bg-fuchsia-600 text-white p-6 rounded-[2.5rem] shadow-[0_10px_60px_rgba(217,70,239,0.6)] rotate-[-8deg]"><Zap className="h-16 w-12 fill-white" /></span>
           <span>meeting AI<br/><span className="text-3xl tracking-widest text-fuchsia-400">overdrive</span></span>
         </h1>
-        
-        {systemStatus && (
-           <div className="mt-6 flex flex-wrap justify-center gap-4 animate-in fade-in slide-in-from-top-4 duration-1000">
-              <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
-                <div className={`w-2 h-2 rounded-full ${systemStatus.workerHealthy ? 'bg-lime-500 shadow-[0_0_10px_rgba(132,204,22,0.8)]' : 'bg-rose-500'}`} />
-                Neural {systemStatus.localModel}
-              </div>
-              <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
-                <div className={`w-2 h-2 rounded-full ${systemStatus.apiStatus === 'ok' ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)]' : 'bg-rose-500'}`} />
-                Cloud Brain ({systemStatus.cloudModel})
-              </div>
-           </div>
-        )}
       </header>
 
       <main className="max-w-4xl mx-auto relative z-10 flex flex-col gap-8">
+        
+        {showConfigAlert && (
+          <div className="w-full bg-amber-500/20 border-2 border-amber-500/40 p-10 rounded-[2.5rem] backdrop-blur-xl animate-in zoom-in-95 flex flex-col md:flex-row items-center gap-8">
+             <AlertTriangle className="w-16 h-16 text-amber-500 flex-shrink-0" />
+             <div className="flex-1">
+                <h3 className="text-2xl font-black text-amber-400 uppercase tracking-widest mb-2">未偵測到 ANTHROPIC_API_KEY</h3>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  系統目前已就緒，但缺乏雲端大腦金鑰，將無法執行「專業排版」與「會議摘要」功能。
+                  請在專案根目錄的 <code className="bg-black/40 px-2 py-1 rounded text-white font-mono">.env.local</code> 檔案中加入：
+                </p>
+                <div className="mt-4 bg-black/60 p-4 rounded-xl border border-white/10 font-mono text-cyan-400 text-xs">
+                   ANTHROPIC_API_KEY=sk-ant-api03-xxxx...
+                </div>
+             </div>
+             <button onClick={runDiagnostics} className="px-8 py-4 bg-amber-500 text-black font-black uppercase rounded-full hover:scale-105 transition-all flex items-center gap-2"><RefreshCw className="w-4 h-4" /> 重新檢測</button>
+          </div>
+        )}
+
         {status !== 'idle' && (
           <div className="w-full bg-black/60 backdrop-blur-md rounded-[2.5rem] border-2 border-white/10 p-6 flex justify-between items-center relative overflow-hidden">
              <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-lime-400 transition-all duration-1000" style={{ width: `${(STEPS.findIndex(s => s.id === status) / (STEPS.length - 1)) * 100}%` }} />

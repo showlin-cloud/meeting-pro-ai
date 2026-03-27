@@ -2,12 +2,13 @@
  * Skill: DiagnosticsSkill (系統診斷技能)
  * 
  * 負責檢查本地 Web Worker 狀態、瀏覽器記憶體、以及與雲端 API 的連線。
+ * 已強化錯誤描述，幫助用戶識別「未設定 API Key」。
  */
 
 export interface SystemStatus {
   localModel: string;
   cloudModel: string;
-  apiStatus: 'ok' | 'error';
+  apiStatus: 'ok' | 'error' | 'missing_key';
   workerHealthy: boolean;
   memoryUsage?: string;
   message?: string;
@@ -33,16 +34,22 @@ export class DiagnosticsSkill {
     try {
       const resp = await fetch('/api/summarize', { method: 'GET' });
       const data = await resp.json();
+      
       if (data.status === 'ok') {
         status.apiStatus = 'ok';
+      } else if (data.message?.includes('Missing Key') || resp.status === 401) {
+        status.apiStatus = 'missing_key';
+        status.message = 'ANTHROPIC_API_KEY 未設定';
       } else {
-        status.message = data.message;
+        status.apiStatus = 'error';
+        status.message = data.message || 'API 連線失敗';
       }
     } catch (err) {
-      status.message = 'Network error or endpoint unavailable';
+      status.apiStatus = 'error';
+      status.message = '網絡連線異常';
     }
 
-    // 3. 檢查 Web Worker (簡單測試，前端會通過 transcriber 實例確認)
+    // 3. 檢查 Web Worker
     status.workerHealthy = typeof Worker !== 'undefined';
 
     return status;
