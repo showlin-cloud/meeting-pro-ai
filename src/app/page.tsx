@@ -89,13 +89,14 @@ export default function MeetingProDashboard() {
     // Initial System Check
     runDiagnostics();
 
-    // Initialize transcriber
-    transcriber.current = new WebWorkerTranscriber();
-    transcriber.current.onLog((msg) => addLog(`[Worker] ${msg}`));
-    transcriber.current.onError((err) => {
+    // Initialize transcriber setup
+    const tw = new WebWorkerTranscriber();
+    tw.onLog((msg) => addLog(`[Worker] ${msg}`));
+    tw.onError((err) => {
       addLog(`[Critical] Transcriber Error: ${err}`);
       setStatusText('神經網路超時或毀損！請嘗試「清理緩存」重新開始。');
     });
+    transcriber.current = tw;
 
     transcriber.current.onResult((result) => {
       const { index, data } = result;

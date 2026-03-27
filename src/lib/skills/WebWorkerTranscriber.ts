@@ -18,7 +18,10 @@ export class WebWorkerTranscriber {
     if (typeof window !== 'undefined') {
       try {
         this.onLogCallback?.('正在初始化 Web Worker 實例...');
-        this.worker = new Worker(new URL('../../workers/WebWorkerTranscriber.worker.ts', import.meta.url));
+        this.worker = new Worker(
+          new URL('../../workers/WebWorkerTranscriber.worker.ts', import.meta.url),
+          { type: 'module' }
+        );
         
         this.worker.onerror = (e) => {
           const msg = `Worker Script Error: ${e.message} at ${e.filename}:${e.lineno}`;
