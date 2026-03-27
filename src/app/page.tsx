@@ -66,8 +66,8 @@ export default function MeetingProDashboard() {
 
   const STEPS = [
     { id: 'extracting', label: '1. 提取音軌', icon: FileAudio },
-    { id: 'transcribing', label: '2. 本地轉錄', icon: Subtitles },
-    { id: 'done', label: '3. 完成下載', icon: CheckCircle2 },
+    { id: 'transcribing', label: '2. 替身轉錄', icon: Subtitles },
+    { id: 'done', label: '3. 奧義導出', icon: CheckCircle2 },
   ];
 
   const addLog = (msg: string) => {
@@ -78,8 +78,6 @@ export default function MeetingProDashboard() {
     const res = await diagnosticsSkill.current.checkAISystem();
     setSystemStatus(res);
     addLog(`[Diagnostics] System Check: Local Model: ${res.localModel}`);
-    addLog(`[Diagnostics] System Check: Cloud Model: ${res.cloudModel}`);
-    // Diagnostics for API skipped in simplify mode
     addLog(`[Diagnostics] System Check: Memory: ${res.memoryUsage}`);
   };
 
@@ -94,7 +92,7 @@ export default function MeetingProDashboard() {
     tw.onLog((msg) => addLog(`[Worker] ${msg}`));
     tw.onError((err) => {
       addLog(`[Critical] Transcriber Error: ${err}`);
-      setStatusText('神經網路超時或毀損！請嘗試「清理緩存」重新開始。');
+      setStatusText('神經網路超時或毀損！請點擊下方「清理緩存」重新開始。');
     });
     transcriber.current = tw;
 
@@ -171,11 +169,11 @@ export default function MeetingProDashboard() {
     setEta(null);
     setCompletedChunksCount(0);
     setTranscriptionStartTime(null);
-    addLog(`[System] Ignition! Processing ${targetFile.name}`);
+    addLog(`[System] Ignition! Overdrive mode activated for ${targetFile.name}`);
     
     const startT = Date.now();
     setStartTime(startT);
-    setStatusText('啟動 LocalStreamProcessor... FFmpeg 正在壓制 PCM...');
+    setStatusText('啟動 LocalStreamProcessor... PCM 壓制中！！');
 
     try {
       await streamProcessor.current.processStream(
@@ -184,7 +182,7 @@ export default function MeetingProDashboard() {
           if (index === 0) setTranscriptionStartTime(Date.now());
           
           setStatus('transcribing');
-          setStatusText(`本地 AI 發動！轉錄中：第 ${index + 1} 片段 (${(index*5)}-${(index+1)*5}min)`);
+          setStatusText(`本地替身發動！轉錄中：第 ${index + 1} 片段 (${(index*5)}-${(index+1)*5}min)`);
           
           setChunks(prev => {
             const updated = [...prev];
@@ -201,7 +199,7 @@ export default function MeetingProDashboard() {
              const elapsed = (Date.now() - startT) / 1000;
              if (p > 5) setEta(Math.round((elapsed / (p / 100)) - elapsed));
           } else {
-             setStatusText('音訊提取完畢。本地 AI 正在進行逐字稿超速推理...');
+             setStatusText('音訊提取完畢。AI 正在進行超速推理！！');
              setEta(null);
           }
         }
@@ -225,7 +223,7 @@ export default function MeetingProDashboard() {
     
     setTranscript(markdownOutput);
     setStatus('done');
-    setStatusText('轉錄完結。您可以下載逐字稿了！');
+    setStatusText('轉錄全達成。下載奧義文件吧！');
     addLog('[System] Transcription complete. Output generated locally.');
   };
 
@@ -285,15 +283,15 @@ export default function MeetingProDashboard() {
 
   const getMascotSpeech = () => {
     if (hoverQuote) return hoverQuote;
-    if (status === 'idle') return "「預備... 本地波紋轉錄即將發動！」";
+    if (status === 'idle') return "「這種波紋... 是開會的前兆嗎？！」 🌍";
     if (status === 'extracting') return "「FFmpeg 正在切片！音質淨化中！」";
     if (status === 'transcribing') return "「歐拉歐拉！逐字稿碎片正在本地掉落！」";
     if (status === 'done') return "「轉錄全達成！趕快下載回去交差吧！💤」";
     return "「會議遠征進行中...」";
   };
 
-  const TACTILE_BOX = "bg-[#0b101a]/85 backdrop-blur-3xl border border-cyan-500/20 shadow-[0_0_80px_rgba(34,211,238,0.1)] rounded-[3rem]";
-  const CLAY_BUTTON = "rounded-full font-black tracking-widest uppercase transition-all duration-300 hover:scale-[1.1] active:scale-95 shadow-[0_0_30px_rgba(34,211,238,0.4)] border-2 border-slate-700 hover:border-cyan-400";
+  const TACTILE_BOX = "bg-[#0b101a]/85 backdrop-blur-3xl border border-fuchsia-500/20 shadow-[0_0_80px_rgba(217,70,239,0.1)] rounded-[3rem]";
+  const CLAY_BUTTON = "rounded-full font-black tracking-widest uppercase transition-all duration-300 hover:scale-[1.1] active:scale-95 shadow-[0_0_30px_rgba(217,70,239,0.4)] border-2 border-slate-700 hover:border-fuchsia-400";
 
   return (
     <div className={`w-full min-h-screen bg-[#04060b] bg-[url('/bg-cosmic.png')] bg-cover bg-center bg-fixed text-slate-200 font-sans pt-12 pb-48 px-6 relative overflow-hidden`}>
@@ -310,16 +308,16 @@ export default function MeetingProDashboard() {
                   Neural {systemStatus.localModel} (Heap: {systemStatus.memoryUsage})
                 </div>
                 <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-cyan-700" />
-                  Mode: Local-First (Privacy)
+                  <div className="w-2 h-2 rounded-full bg-fuchsia-700" />
+                  Stand Type: Local-Only
                 </div>
               </div>
            )}
         </div>
 
         <h1 className="text-6xl md:text-8xl font-black lowercase tracking-tighter text-white flex flex-col md:flex-row items-center gap-6">
-          <span className="bg-cyan-600 text-white p-6 rounded-[2.5rem] shadow-[0_10px_60px_rgba(6,182,212,0.6)] rotate-[-8deg]"><Zap className="h-16 w-12 fill-white" /></span>
-          <span>meeting AI<br/><span className="text-3xl tracking-widest text-cyan-400">transcript</span></span>
+          <span className="bg-fuchsia-600 text-white p-6 rounded-[2.5rem] shadow-[0_10px_60px_rgba(217,70,239,0.6)] rotate-[-8deg]"><Zap className="h-16 w-12 fill-white" /></span>
+          <span>meeting AI<br/><span className="text-3xl tracking-widest text-fuchsia-400">overdrive</span></span>
         </h1>
       </header>
 
@@ -327,10 +325,10 @@ export default function MeetingProDashboard() {
         
         {status !== 'idle' && (
           <div className="w-full bg-black/60 backdrop-blur-md rounded-[2.5rem] border-2 border-white/10 p-6 flex justify-between items-center relative overflow-hidden">
-             <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-cyan-400 via-emerald-500 to-cyan-400 transition-all duration-1000" style={{ width: `${(STEPS.findIndex(s => s.id === status) / (STEPS.length - 1)) * 100}%` }} />
+             <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-fuchsia-400 via-indigo-500 to-fuchsia-400 transition-all duration-1000" style={{ width: `${(STEPS.findIndex(s => s.id === status) / (STEPS.length - 1)) * 100}%` }} />
              {STEPS.map((step, idx) => (
                 <div key={step.id} className={`relative z-10 flex flex-col items-center gap-2`}>
-                   <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center transition-all ${status === step.id ? 'bg-cyan-900 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.5)] scale-110' : 'bg-black border-white/10'}`}>
+                   <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center transition-all ${status === step.id ? 'bg-fuchsia-900 border-fuchsia-400 shadow-[0_0_20px_rgba(217,70,239,0.5)] scale-110' : 'bg-black border-white/10'}`}>
                       <step.icon className={`w-5 h-5 ${status === step.id ? 'text-white' : 'text-slate-600'}`} />
                    </div>
                    <span className="text-[9px] font-black uppercase text-slate-500">{step.label}</span>
@@ -343,17 +341,17 @@ export default function MeetingProDashboard() {
           <div className="bg-black/95 text-lime-400 p-8 rounded-[2.5rem] shadow-inner border-2 border-white/5 text-center relative w-full overflow-hidden min-h-[140px] flex flex-col items-center justify-center gap-2">
             <span className="font-mono text-xl uppercase tracking-widest font-black z-10 animate-in fade-in" dangerouslySetInnerHTML={{ __html: `&gt; ${statusText}` }} />
             {eta !== null && eta > 0 && (
-              <div className="flex items-center gap-4 bg-cyan-900/40 px-6 py-2 rounded-full border border-cyan-500/30 text-cyan-100 font-black tracking-widest animate-in fade-in slide-in-from-top-2 z-10">
-                <Clock className="w-5 h-5 text-cyan-400" />
-                <span>預計剩餘時間: <span className="text-2xl text-white underline decoration-cyan-500 decoration-4">{formatETA(eta)}</span></span>
+              <div className="flex items-center gap-4 bg-fuchsia-900/40 px-6 py-2 rounded-full border border-fuchsia-500/30 text-fuchsia-100 font-black tracking-widest animate-in fade-in slide-in-from-top-2 z-10">
+                <Clock className="w-5 h-5 text-fuchsia-400" />
+                <span>預計剩餘時間: <span className="text-2xl text-white underline decoration-fuchsia-500 decoration-4">{formatETA(eta)}</span></span>
               </div>
             )}
             {(status === 'extracting' || status === 'transcribing') && (
               <button 
                 onClick={finalizeTranscription} 
-                className="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-full text-xs font-black flex items-center gap-2 shadow-xl z-20"
+                className="mt-4 bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-8 py-3 rounded-full text-xs font-black flex items-center gap-2 shadow-xl z-20"
               >
-                <CheckCircle2 className="w-4 h-4" /> 提前結束並導出現有內容
+                <CheckCircle2 className="w-4 h-4" /> 提前結束並導出奧義內容
               </button>
             )}
           </div>
@@ -361,14 +359,14 @@ export default function MeetingProDashboard() {
 
         {status === 'idle' && (
           <div className="flex flex-col gap-6">
-            <div onClick={() => fileInputRef.current?.click()} onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop} className={`${TACTILE_BOX} p-20 md:p-32 border-4 text-center cursor-pointer transition-all ${isDragging ? 'scale-105 border-cyan-400' : 'border-cyan-500/30'} group`}>
+            <div onClick={() => fileInputRef.current?.click()} onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop} className={`${TACTILE_BOX} p-20 md:p-32 border-4 text-center cursor-pointer transition-all ${isDragging ? 'scale-105 border-fuchsia-400' : 'border-fuchsia-500/30'} group`}>
               <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} accept="video/*,audio/*" />
               <div className="w-48 h-48 mx-auto mb-12 bg-white rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.3)] group-hover:scale-110 transition-transform">
-                 <Zap className="w-24 h-24 text-cyan-600 fill-cyan-600" />
+                 <Zap className="w-24 h-24 text-fuchsia-600 fill-fuchsia-600" />
               </div>
               <h3 className="text-4xl md:text-6xl font-black text-white mb-8">stand activation.</h3>
-              <p className="text-slate-400 font-bold mb-12 tracking-widest uppercase">Pure Local Transcription (Privacy First).</p>
-              <div className="inline-flex items-center gap-6 bg-white text-black px-12 py-6 rounded-full text-lg font-black hover:bg-emerald-400 transition-all"><Flame className="w-8 h-8" /> Start Transcription</div>
+              <p className="text-slate-400 font-bold mb-12 tracking-widest uppercase">Pure Local Overdrive (Privacy First).</p>
+              <div className="inline-flex items-center gap-6 bg-white text-black px-12 py-6 rounded-full text-lg font-black hover:bg-fuchsia-400 transition-all"><Flame className="w-8 h-8" /> Start Analysis</div>
             </div>
             
             <div className="flex justify-center">
@@ -382,11 +380,11 @@ export default function MeetingProDashboard() {
         {(status === 'extracting' || status === 'transcribing') && (
           <div className="space-y-8 animate-in fade-in">
             <div className={`${TACTILE_BOX} overflow-hidden`}>
-              <div className="bg-cyan-900/40 px-8 py-4 flex justify-between items-center">
-                <h3 className="font-black text-cyan-200 uppercase tracking-widest flex items-center gap-3">
-                  <BarChart3 className="w-5 h-5" /> 實時轉錄流 (Neural Stream)
+              <div className="bg-fuchsia-900/40 px-8 py-4 flex justify-between items-center border-b border-white/5">
+                <h3 className="font-black text-fuchsia-200 uppercase tracking-widest flex items-center gap-3">
+                  <BarChart3 className="w-5 h-5" /> 實時波紋流 (Neural Stream)
                 </h3>
-                {status === 'transcribing' && <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />}
+                {status === 'transcribing' && <Loader2 className="w-6 h-6 text-fuchsia-400 animate-spin" />}
               </div>
               <table className="w-full text-left text-sm font-mono">
                 <thead className="bg-black/60 text-slate-500 uppercase"><tr><th className="px-8 py-4"># 分段</th><th className="px-8 py-4">時間</th><th className="px-8 py-4">內容</th></tr></thead>
@@ -395,11 +393,11 @@ export default function MeetingProDashboard() {
                     <tr><td colSpan={3} className="px-8 py-12 text-center text-slate-700 font-black animate-pulse uppercase tracking-[0.5em]">Waiting for first wave...</td></tr>
                   ) : (
                     chunks.map((c, i) => (
-                      <tr key={i} className={`transition-colors duration-500 ${c.text ? 'bg-cyan-500/5' : ''}`}>
-                        <td className="px-8 py-4 text-cyan-400 font-black">#0{c.index + 1}</td>
+                      <tr key={i} className={`transition-colors duration-500 ${c.text ? 'bg-fuchsia-500/5' : ''}`}>
+                        <td className="px-8 py-4 text-fuchsia-400 font-black">#0{c.index + 1}</td>
                         <td className="px-8 py-4 text-slate-500">{c.timeRange}</td>
                         <td className="px-8 py-4 text-white">
-                          {c.text || <div className="flex items-center gap-2 text-cyan-400/60"><Loader2 className="w-3 h-3 animate-spin" /> 推論中...</div>}
+                          {c.text || <div className="flex items-center gap-2 text-fuchsia-400/60"><Loader2 className="w-3 h-3 animate-spin" /> 推論中...</div>}
                         </td>
                       </tr>
                     ))
@@ -412,18 +410,18 @@ export default function MeetingProDashboard() {
 
         {status === 'done' && (
           <div className="w-full space-y-10 animate-in bounce-in duration-700">
-            <div className={`${TACTILE_BOX} p-12 border-emerald-500/40 shadow-[0_0_100px_rgba(16,185,129,0.2)]`}>
+            <div className={`${TACTILE_BOX} p-12 border-fuchsia-500/40 shadow-[0_0_100px_rgba(217,70,239,0.2)]`}>
               <div className="flex justify-between items-center mb-10">
-                <h2 className="text-3xl font-black text-emerald-400 uppercase flex items-center gap-3"><CheckCircle2/> 轉錄已完成</h2>
+                <h2 className="text-3xl font-black text-fuchsia-400 uppercase flex items-center gap-3"><CheckCircle2/> 轉錄奧義達成</h2>
                 <button 
                   onClick={downloadTranscript} 
-                  className="bg-emerald-500 text-black px-10 py-5 rounded-full font-black flex items-center gap-3 hover:scale-110 active:scale-95 transition-all shadow-2xl"
+                  className="bg-fuchsia-500 text-black px-10 py-5 rounded-full font-black flex items-center gap-3 hover:scale-110 active:scale-95 transition-all shadow-2xl"
                 >
                   <Download className="w-6 h-6" /> 下載 Markdown 逐字稿
                 </button>
               </div>
               <div className="bg-black/80 rounded-3xl p-8 border border-white/5 max-h-[600px] overflow-y-auto custom-scrollbar">
-                <pre className="whitespace-pre-wrap font-mono text-emerald-100 text-sm leading-relaxed">{transcript}</pre>
+                <pre className="whitespace-pre-wrap font-mono text-fuchsia-100 text-sm leading-relaxed">{transcript}</pre>
               </div>
             </div>
             
@@ -442,14 +440,14 @@ export default function MeetingProDashboard() {
       {/* Floating Mascot */}
       <div className="fixed top-0 left-0 pointer-events-none z-50 transition-all duration-700 ease-out flex flex-col items-center" style={{ transform: `translate(${mascotPos.x + 30}px, ${mascotPos.y - 20}px) rotate(${targetTilt}deg)` }}>
         <img src="/mascot.png" className="w-32 h-32 animate-bounce" />
-        <div className="mt-4 bg-black/60 backdrop-blur-3xl px-6 py-4 rounded-full border border-cyan-500/40 text-[10px] font-black uppercase text-white shadow-2xl">{getMascotSpeech()}</div>
+        <div className="mt-4 bg-black/60 backdrop-blur-3xl px-6 py-4 rounded-full border border-fuchsia-500/40 text-[10px] font-black uppercase text-white shadow-2xl">{getMascotSpeech()}</div>
       </div>
 
-      {showJojo && (<div className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center bg-black/90"><div className="bg-white border-[10px] border-black p-20 shadow-[40px_40px_0_#06b6d4]"><h2 className="text-6xl font-black text-black uppercase">「{currentQuote}」</h2></div></div>)}
+      {showJojo && (<div className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center bg-black/90"><div className="bg-white border-[10px] border-black p-20 shadow-[40px_40px_0_#d946ef]"><h2 className="text-6xl font-black text-black uppercase">「{currentQuote}」</h2></div></div>)}
 
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #06b6d4; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d946ef; border-radius: 10px; }
       `}} />
     </div>
   );
