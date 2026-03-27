@@ -306,7 +306,7 @@ export default function MeetingProDashboard() {
               <div key="status-badges" className="flex gap-4 animate-in fade-in slide-in-from-top-4 duration-1000">
                 <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
                   <div className={`w-2 h-2 rounded-full ${systemStatus.workerHealthy ? 'bg-lime-500 shadow-[0_0_10px_rgba(132,204,22,0.8)]' : 'bg-rose-500'}`} />
-                  Neural {systemStatus.localModel}
+                  Neural {systemStatus.localModel} (Heap: {systemStatus.memoryUsage})
                 </div>
                 <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
                   <div className="w-2 h-2 rounded-full bg-cyan-700" />
