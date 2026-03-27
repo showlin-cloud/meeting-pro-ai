@@ -5,7 +5,7 @@ import FigmaContextAwareConsultant, { FigmaIntentParameters } from '@/components
 import MindMapPreview from '@/components/MindMapPreview';
 import ExecutionConsole from '@/components/ExecutionConsole';
 import { 
-  FileDown, RefreshCw, CheckCircle2, Zap, Flame, Stars, FileAudio, Subtitles, HelpCircle, Network, StopCircle, Loader2, Clock, BarChart3, Activity
+  FileDown, RefreshCw, CheckCircle2, Zap, Flame, Stars, FileAudio, Subtitles, HelpCircle, Network, StopCircle, Loader2, Clock, BarChart3, Activity, Trash2, LayoutList
 } from 'lucide-react';
 
 // Import Real Skills
@@ -22,7 +22,7 @@ interface TranscriptionChunk {
 
 export default function MeetingProDashboard() {
   const [file, setFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<'idle' | 'extracting' | 'transcribing' | 'consulting' | 'summarizing' | 'done'>('idle');
+  const [status, setStatus] = useState<'idle' | 'extracting' | 'transcribing' | 'formatting' | 'consulting' | 'summarizing' | 'done'>('idle');
   const [chunks, setChunks] = useState<TranscriptionChunk[]>([]);
   const [transcript, setTranscript] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
@@ -56,7 +56,7 @@ export default function MeetingProDashboard() {
   // Skill Instances
   const streamProcessor = useRef(new LocalStreamProcessor());
   const transcriber = useRef<WebWorkerTranscriber | null>(null);
-  const diagnosticsScale = useRef(new DiagnosticsSkill());
+  const diagnosticsSkill = useRef(new DiagnosticsSkill());
 
   const jojoUploadQuotes = [
      "又是開會？這種無馱無馱無馱的會議，交給我的替身！",
@@ -68,31 +68,35 @@ export default function MeetingProDashboard() {
   ];
 
   const STEPS = [
-    { id: 'extracting', label: '1. 音訊提取', icon: FileAudio },
-    { id: 'transcribing', label: '2. 神經轉錄', icon: Subtitles },
-    { id: 'consulting', label: '3. 意圖諮詢', icon: HelpCircle },
-    { id: 'summarizing', label: '4. 智能摘要', icon: Network },
+    { id: 'extracting', label: '1. 提取', icon: FileAudio },
+    { id: 'transcribing', label: '2. 轉錄', icon: Subtitles },
+    { id: 'formatting', label: '3. 排版', icon: LayoutList },
+    { id: 'consulting', label: '4. 諮詢', icon: HelpCircle },
+    { id: 'summarizing', label: '5. 摘要', icon: Network },
   ];
 
   const addLog = (msg: string) => {
-    setWorkerLogs(prev => [...prev, `${new Date().toLocaleTimeString()} ${msg}`].slice(-150));
+    setWorkerLogs(prev => [...prev, `${new Date().toLocaleTimeString()} ${msg}`].slice(-200));
   };
 
   useEffect(() => {
     setMascotPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
     
     // Initial System Check
-    diagnosticsScale.current.checkAISystem().then(res => {
+    diagnosticsSkill.current.checkAISystem().then(res => {
       setSystemStatus(res);
       addLog(`[Diagnostics] System Check: Local Model: ${res.localModel}`);
       addLog(`[Diagnostics] System Check: Cloud Model: ${res.cloudModel}`);
       addLog(`[Diagnostics] System Check: API Status: ${res.apiStatus.toUpperCase()}`);
-      if (res.memoryUsage) addLog(`[Diagnostics] System Check: Memory: ${res.memoryUsage}`);
     });
 
     // Initialize transcriber
     transcriber.current = new WebWorkerTranscriber();
     transcriber.current.onLog((msg) => addLog(msg));
+    transcriber.current.onError((err) => {
+      addLog(`[Critical] Transcriber Error: ${err}`);
+      setStatusText('神經網路超時或毀損！請點擊下方「清理緩存」重新開始。');
+    });
 
     transcriber.current.onResult((result) => {
       const { index, data } = result;
@@ -164,7 +168,7 @@ export default function MeetingProDashboard() {
     setEta(null);
     setCompletedChunksCount(0);
     setTranscriptionStartTime(null);
-    addLog(`[System] Ignition! Processing ${targetFile.name} (${(targetFile.size / 1024 / 1024).toFixed(2)} MB)`);
+    addLog(`[System] Ignition! Processing ${targetFile.name}`);
     
     const startT = Date.now();
     setStartTime(startT);
@@ -185,7 +189,6 @@ export default function MeetingProDashboard() {
             return updated;
           });
           
-          addLog(`[FFmpeg] Slice #${index} extracted. Passing to local AI...`);
           transcriber.current?.processChunk(pcmData, index);
         },
         (p) => {
@@ -194,10 +197,8 @@ export default function MeetingProDashboard() {
              setStatusText(`FFmpeg 切片進度: ${p}%`);
              const elapsed = (Date.now() - startT) / 1000;
              if (p > 5) setEta(Math.round((elapsed / (p / 100)) - elapsed));
-             if (p % 10 === 0) addLog(`[FFmpeg] Extraction progress: ${p}%`);
           } else {
              setStatusText('音訊提取完畢。AI 正在進行逐字稿超速推理...');
-             addLog(`[FFmpeg] Extraction complete! All 5-min slices generated.`);
           }
         }
       );
@@ -209,38 +210,74 @@ export default function MeetingProDashboard() {
     }
   };
 
-  const finalizeTranscription = () => {
-    const fullText = chunks.filter(c => c.text).map(c => `[Slice ${c.index + 1}] ${c.text}`).join('\n\n');
-    setTranscript(fullText || "轉錄結果為空");
+  const finalizeTranscription = async () => {
+    const rawTranscript = chunks.filter(c => c.text).map(c => `[Slice ${c.index + 1}] ${c.text}`).join('\n\n');
+    
+    setStatus('formatting');
+    setStatusText('Claude 正在進行「專業會議記錄」排版 (Markdown 表格製作中)...');
+    addLog('[System] Transcription raw data complete. Starting professional formatting phase.');
+
+    try {
+      const response = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: rawTranscript, mode: 'format' })
+      });
+      const data = await response.json();
+      
+      if (data.formattedTranscript) {
+        setTranscript(data.formattedTranscript);
+        addLog('[System] Formatting complete. Speaker labels A/B/C and timestamps applied.');
+      } else {
+        setTranscript(rawTranscript);
+        addLog('[Warning] Formatting failed, falling back to raw transcript.');
+      }
+    } catch (err) {
+      setTranscript(rawTranscript);
+      addLog(`[Error] Formatting failed: ${err}`);
+    }
+
     setStatus('consulting');
-    setStatusText('轉錄完結。強制暫停：請檢閱文稿並設定意圖。');
+    setStatusText('排版完結。強制暫停：請檢閱專業文稿並設定意圖。');
     setEta(null);
-    addLog('[System] Transcription workflow finalized. Waiting for user intent.');
   };
 
   const handleAbortAndSummarize = () => {
     streamProcessor.current.abort();
-    addLog('[User] Abort signal received. Summarizing partially completed work.');
+    addLog('[User] Abort signal received. Processing available segments.');
     finalizeTranscription();
   };
 
   const handleConsultComplete = async (intent: FigmaIntentParameters) => {
     setStatus('summarizing');
     setStatusText('啟動 DynamicClaudeSummarizer... 分析 80/20 結構中...');
-    addLog('[API] Calling DynamicClaudeSummarizer... Sending transcript to cloud brain.');
+    addLog('[API] Calling DynamicClaudeSummarizer...');
     
     try {
-      const summarizer = new DynamicClaudeSummarizer();
-      const result = await summarizer.summarize(transcript);
+      const response = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript, mode: 'summarize' })
+      });
+      const result = await response.json();
+      
       setSummary(result.structuredNotes);
       setMindmapCode(result.mindMapSyntax);
       setStatus('done');
       setStatusText('分析完成。');
-      addLog('[API] Summary & Mindmap generated successfully.');
+      addLog('[API] Summary generated.');
     } catch (err) {
       console.error(err);
       setStatusText('摘要生成失敗。');
       addLog(`[Critical] API Summary Failed: ${err}`);
+    }
+  };
+
+  const clearNeuralCache = async () => {
+    if (confirm('確定要清理神經網路緩存嗎？這將會重新從雲端下載模型組件。')) {
+      await transcriber.current?.clearCache();
+      addLog('[Service] Neural Cache Purged. Workers restarted.');
+      alert('緩存已清除，請重新整理頁面以啟動全新引擎！');
     }
   };
 
@@ -258,8 +295,7 @@ export default function MeetingProDashboard() {
     setProgress(0);
     setEta(null);
     setCompletedChunksCount(0);
-    setWorkerLogs([]);
-    addLog('[System] Workspace reset. Ready for next session.');
+    addLog('[System] Workspace reset.');
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -285,6 +321,7 @@ export default function MeetingProDashboard() {
     if (status === 'idle') return "「這種波紋... 是開會的前兆嗎？！」 🌍";
     if (status === 'extracting') return "「FFmpeg 正在切片！音質淨化中！」";
     if (status === 'transcribing') return "「歐拉歐拉！逐字稿碎片正即時掉落！」";
+    if (status === 'formatting') return "「正在進行專業修辭排版...」";
     if (status === 'consulting') return "「強制停止！確認完畢才能產出最終奧義！」 🛑";
     if (status === 'summarizing') return "「貧弱貧弱！Claude 正在把垃圾會議變黃金！」 💥";
     return "「會議遠征終於劃下句號。💤」";
@@ -304,26 +341,17 @@ export default function MeetingProDashboard() {
           <span className="bg-fuchsia-600 text-white p-6 rounded-[2.5rem] shadow-[0_10px_60px_rgba(217,70,239,0.6)] rotate-[-8deg]"><Zap className="h-16 w-12 fill-white" /></span>
           <span>meeting AI<br/><span className="text-3xl tracking-widest text-fuchsia-400">overdrive</span></span>
         </h1>
-        <p className="text-cyan-300 font-black tracking-[0.4em] text-sm md:text-xl uppercase mt-8 bg-black/60 px-12 py-4 rounded-full border-4 border-cyan-400/50 shadow-2xl backdrop-blur-xl animate-pulse">
-          progressive neural flow ⚡ wasm + whisper
-        </p>
-
+        
         {systemStatus && (
            <div className="mt-6 flex flex-wrap justify-center gap-4 animate-in fade-in slide-in-from-top-4 duration-1000">
               <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
                 <div className={`w-2 h-2 rounded-full ${systemStatus.workerHealthy ? 'bg-lime-500 shadow-[0_0_10px_rgba(132,204,22,0.8)]' : 'bg-rose-500'}`} />
-                {systemStatus.localModel}
+                Neural {systemStatus.localModel}
               </div>
               <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
                 <div className={`w-2 h-2 rounded-full ${systemStatus.apiStatus === 'ok' ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)]' : 'bg-rose-500'}`} />
-                {systemStatus.cloudModel}
+                Cloud Brain ({systemStatus.cloudModel})
               </div>
-              {systemStatus.memoryUsage && (
-                <div className="flex items-center gap-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/5 text-[10px] uppercase font-bold text-slate-400">
-                  <Activity className="w-3 h-3 text-fuchsia-400" />
-                  {systemStatus.memoryUsage}
-                </div>
-              )}
            </div>
         )}
       </header>
@@ -331,13 +359,13 @@ export default function MeetingProDashboard() {
       <main className="max-w-4xl mx-auto relative z-10 flex flex-col gap-8">
         {status !== 'idle' && (
           <div className="w-full bg-black/60 backdrop-blur-md rounded-[2.5rem] border-2 border-white/10 p-6 flex justify-between items-center relative overflow-hidden">
-             <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-cyan-400 to-lime-400" style={{ width: `${Math.max(0, STEPS.findIndex(s => s.id === status)) * 33.33}%` }} />
+             <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-lime-400 transition-all duration-1000" style={{ width: `${(STEPS.findIndex(s => s.id === status) / (STEPS.length - 1)) * 100}%` }} />
              {STEPS.map((step, idx) => (
                 <div key={step.id} className={`relative z-10 flex flex-col items-center gap-2`}>
-                   <div className={`w-12 h-12 md:w-16 md:h-16 rounded-full border-2 flex items-center justify-center ${status === step.id ? 'bg-fuchsia-900 border-fuchsia-400 animate-pulse' : 'bg-black border-white/10'}`}>
-                      <step.icon className={`w-6 h-6 ${status === step.id ? 'text-white' : 'text-slate-600'}`} />
+                   <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center transition-all ${status === step.id ? 'bg-fuchsia-900 border-fuchsia-400 shadow-[0_0_20px_rgba(217,70,239,0.5)] scale-110' : 'bg-black border-white/10'}`}>
+                      <step.icon className={`w-5 h-5 ${status === step.id ? 'text-white' : 'text-slate-600'}`} />
                    </div>
-                   <span className="text-[10px] font-black uppercase text-slate-500">{step.label}</span>
+                   <span className="text-[9px] font-black uppercase text-slate-500">{step.label}</span>
                 </div>
              ))}
           </div>
@@ -345,7 +373,7 @@ export default function MeetingProDashboard() {
 
         {status !== 'idle' && (
           <div className="bg-black/95 text-lime-400 p-8 rounded-[2.5rem] shadow-inner border-2 border-white/5 text-center relative w-full overflow-hidden min-h-[140px] flex flex-col items-center justify-center gap-2">
-            <span className="font-mono text-xl uppercase tracking-widest font-black z-10">&gt; {statusText}</span>
+            <span className="font-mono text-xl uppercase tracking-widest font-black z-10 animate-in fade-in">&gt; {statusText}</span>
             {eta !== null && eta > 0 && (
               <div className="flex items-center gap-4 bg-fuchsia-900/40 px-6 py-2 rounded-full border border-fuchsia-500/30 text-fuchsia-100 font-black tracking-widest animate-in fade-in slide-in-from-top-2 z-10">
                 <Clock className="w-5 h-5 text-fuchsia-400" />
@@ -359,15 +387,31 @@ export default function MeetingProDashboard() {
         )}
 
         {status === 'idle' && (
-          <div onClick={() => fileInputRef.current?.click()} onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop} className={`${TACTILE_BOX} p-20 md:p-32 border-4 text-center cursor-pointer transition-all ${isDragging ? 'scale-105 border-fuchsia-400' : 'border-fuchsia-500/30'}`}>
-            <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} accept="video/*,audio/*" />
-            <div className="w-48 h-48 mx-auto mb-12 animate-bounce bg-white rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.3)]">
-               <Zap className="w-24 h-24 text-fuchsia-600 fill-fuchsia-600" />
+          <div className="flex flex-col gap-6">
+            <div onClick={() => fileInputRef.current?.click()} onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop} className={`${TACTILE_BOX} p-20 md:p-32 border-4 text-center cursor-pointer transition-all ${isDragging ? 'scale-105 border-fuchsia-400' : 'border-fuchsia-500/30'} group`}>
+              <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} accept="video/*,audio/*" />
+              <div className="w-48 h-48 mx-auto mb-12 bg-white rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.3)] group-hover:scale-110 transition-transform">
+                 <Zap className="w-24 h-24 text-fuchsia-600 fill-fuchsia-600" />
+              </div>
+              <h3 className="text-4xl md:text-6xl font-black text-white mb-8">stand activation.</h3>
+              <p className="text-slate-400 font-bold mb-12 tracking-widest uppercase">Pure Privacy. Local Transcription.</p>
+              <div className="inline-flex items-center gap-6 bg-white text-black px-12 py-6 rounded-full text-lg font-black hover:bg-lime-400 transition-all"><Flame className="w-8 h-8" /> Start Analysis</div>
             </div>
-            <h3 className="text-4xl md:text-6xl font-black text-white mb-8">stand activation.</h3>
-            <p className="text-slate-400 font-bold mb-12 tracking-widest">WASM-based local processing (up to 20GB). Pure Privacy.</p>
-            <div className="inline-flex items-center gap-6 bg-white text-black px-12 py-6 rounded-full text-lg font-black hover:bg-lime-400 transition-all"><Flame className="w-8 h-8" /> Start Analysis</div>
+            
+            <div className="flex justify-center">
+               <button onClick={clearNeuralCache} className="flex items-center gap-2 px-6 py-3 bg-rose-900/20 hover:bg-rose-900/40 border border-rose-500/30 text-rose-300 rounded-full text-[10px] uppercase font-black tracking-widest transition-all">
+                  <Trash2 className="w-3 h-3" /> 重啟引擎 & 清理緩存 (Troubleshooting)
+               </button>
+            </div>
           </div>
+        )}
+
+        {status === 'formatting' && (
+           <div className={`${TACTILE_BOX} p-32 text-center animate-pulse border-cyan-500/50`}>
+              <RefreshCw className="w-24 h-24 text-cyan-500 mx-auto mb-8 animate-spin" />
+              <h3 className="text-3xl font-black text-white">Neural Formatting overdrive!</h3>
+              <p className="text-cyan-400 mt-4 uppercase font-black tracking-widest text-sm">Applying speaker labels A/B/C & Markdown Table...</p>
+           </div>
         )}
 
         {(status === 'extracting' || status === 'transcribing') && (
@@ -402,7 +446,6 @@ export default function MeetingProDashboard() {
                       </div>
                    )}
                 </div>
-                {/* Visual Progress Grid */}
                 <div className="flex flex-wrap gap-2 px-4">
                   {chunks.map((c, i) => (
                     <div key={i} className={`w-4 h-4 rounded-sm border ${c.text ? 'bg-cyan-400 border-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-black border-white/10 animate-pulse'}`} />
@@ -442,9 +485,13 @@ export default function MeetingProDashboard() {
 
         {status === 'consulting' && (
           <div className="w-full flex flex-col gap-10 animate-in slide-in-from-bottom-5">
-            <div className={`${TACTILE_BOX} p-12 overflow-hidden`}>
-               <h2 className="text-2xl font-black text-cyan-400 mb-6 uppercase">Final Transcript Confirmation</h2>
-               <pre className="whitespace-pre-wrap font-mono text-cyan-50 p-8 bg-black/80 rounded-2xl border border-white/5 max-h-96 overflow-y-auto custom-scrollbar">{transcript}</pre>
+            <div className={`${TACTILE_BOX} p-12 overflow-hidden border-cyan-400/40`}>
+               <h2 className="text-2xl font-black text-cyan-400 mb-6 uppercase flex items-center gap-4">
+                  <Stars className="w-6 h-6" /> Professional Transcript (Markdown Format)
+               </h2>
+               <div className="prose prose-invert max-w-none prose-sm font-mono text-cyan-50 p-8 bg-black/80 rounded-2xl border border-white/5 max-h-[600px] overflow-y-auto custom-scrollbar selection:bg-fuchsia-500">
+                  <pre className="whitespace-pre-wrap">{transcript}</pre>
+               </div>
             </div>
             <FigmaContextAwareConsultant onComplete={handleConsultComplete} />
           </div>
@@ -472,10 +519,10 @@ export default function MeetingProDashboard() {
         )}
       </main>
 
-      {/* Execution Console (Componentized with Stall Detection) */}
+      {/* Execution Console */}
       <ExecutionConsole 
         logs={workerLogs} 
-        isProcessing={status === 'extracting' || status === 'transcribing' || status === 'summarizing'} 
+        isProcessing={status !== 'idle' && status !== 'done'} 
         onDownloadLogs={downloadLogs} 
       />
 
@@ -490,7 +537,6 @@ export default function MeetingProDashboard() {
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #d946ef; border-radius: 10px; }
-        @keyframes scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
       `}} />
     </div>
   );
